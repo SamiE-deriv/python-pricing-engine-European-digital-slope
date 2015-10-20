@@ -12,6 +12,98 @@ use Math::Business::BlackScholes::Binaries;
 use Math::Business::BlackScholes::Binaries::Greeks::Vega;
 use Math::Business::BlackScholes::Binaries::Greeks::Delta;
 
+=head1 NAME
+
+Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital contracts.
+
+=head1 VERSION
+
+Version 1.00
+
+=cut
+
+our $VERSION = '1.00';
+
+=head1 SYNOPSIS
+
+  use Pricing::Engine::EuropeanDigitalSlope;
+
+  my $pe = Pricing::Engine::EuropeanDigitalSlope->new(
+      contract_type => 'CALL' # supports CALL, PUT, EXPIRYMISS and EXPIRYRANGE
+      underlying_symbol => 'frxUSDJPY',
+      spot => $spot,
+      strikes => [$strike], # an array reference of strikes. [$strike1, $strike2] for multiple strikes contracts
+      date_start => $date_start,
+      date_pricing => $date_pricing,
+      date_expiry => $date_expiry,
+      mu => $mu,
+      vol => $vol,
+      discount_rate => $discount_rate, # payout currency rate
+      r_rate => $r_rate,
+      q_rate => $q_rate,
+      payouttime_code => $payouttime_code, # boolean. True if the contract payouts at hit, false otherwise
+      priced_with => $priced_with, # numeraire, base or quanto?
+      market_data => $market_data, # hash reference of subroutine reference to fetch market data
+      market_convention => $market_data, # hash reference of subroutine reference to fetch market convention information
+  );
+
+  To get the base probability for the contract:
+  my $bs_probability = $pe->bs_probability;
+
+  To get the theretical probability for the contract:
+  my $probability    = $pe->probability;
+
+  To get the risk markups for the contract:
+  my $risk_markup    = $pe->risk_markup;
+
+  To get the commission imposed by this model:
+  my $commission_markup = $pe->commission_markup;
+
+=head1 ATTRIBUTES
+
+=head2 contract_type
+
+The contract that we wish to price.
+
+=head2 spot
+
+The spot value of the underlying instrument.
+
+=head2 strikes
+
+The strike{s) of the contract. (Array Reference)
+
+=head2 date_start
+
+The start time of the contract.
+
+=head2 date_pricing
+
+The time of which the contract is priced.
+
+=head2 date_expiry
+
+The expiration time of the contract.
+
+=head2 discount_rate
+
+The interest rate of the payout currency
+
+=head2 mu
+=head2 vol
+=head2 q_rate
+=head2 r_rate
+
+=head2 underlying_symbol
+
+The symbol of the underlying instrument.
+
+=head2 priced_with
+
+Is this a base, numeraire or quanto contract.
+
+=cut
+
 has [
     qw(contract_type spot strikes date_start date_pricing date_expiry discount_rate mu vol payouttime_code q_rate r_rate priced_with underlying_symbol)
     ] => (
@@ -19,12 +111,44 @@ has [
     required => 1,
     );
 
+=head2 market_data
+
+A hash reference of subroutine references to fetch market data.
+
+    my $market_data = {
+        get_volatility => sub {
+            return $volsurface_obj->get_volatility(@_);
+        },
+        get_economic_event => sub {
+            ...
+        },
+        ...
+    };
+
+=head2 market_convention
+
+A hash reference of subroutine references to fetch market convention.
+
+    my $market_convetion = {
+        get_rollover_time => sub {
+            ...
+        };
+    };
+
+=cut
+
 # required for now since market data and convention are still
 # very much intact to BOM code
 has [qw(market_data market_convention)] => (
     is       => 'ro',
     required => 1,
 );
+
+=head2 debug_information
+
+A hash reference of information that construct probability, risk_markup and commission_markup.
+
+=cut
 
 has debug_information => (
     is      => 'rw',
@@ -36,6 +160,12 @@ has error => (
     init_arg => undef,
     default  => '',
 );
+
+=head2 supported_contract_types
+
+Contract types that this engine can price.
+
+=cut
 
 has supported_contract_types => (
     is      => 'ro',
@@ -72,101 +202,6 @@ sub BUILD {
     return;
 }
 
-has underlying_config => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_underlying_config',
-);
-
-sub _build_underlying_config {
-    my $self = shift;
-    return Finance::Asset->instance->get_parameters_for($self->underlying_symbol);
-}
-
-has timeindays => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_timeindays',
-);
-
-sub _build_timeindays {
-    my $self = shift;
-
-    # The FX convention for duration and volatility is to use integer number of days.
-    # We are following this convention partially, < 1 day uses decimal number of days, > 1 uses integer number of days.
-    # We will fix this as we refacter the volsurface.
-    my $ind;
-    if ($self->underlying_config->{market} eq 'forex') {
-        $ind = $self->market_convention->{calculate_expiry}->($self->date_start, $self->date_expiry);
-    }
-
-    $ind ||= ($self->date_expiry->epoch - $self->date_start->epoch) / 86400;
-
-    return $ind;
-}
-
-has timeinyears => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_timeinyears',
-);
-
-sub _build_timeinyears {
-    my $self = shift;
-    return $self->timeindays / 365;
-}
-
-has is_forward_starting => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_is_forward_starting',
-);
-
-sub _build_is_forward_starting {
-    my $self = shift;
-    # 5 seconds is used as the threshold.
-    # if pricing takes more than that, we are in trouble.
-    return ($self->date_start->epoch - $self->date_pricing->epoch > 5) ? 1 : 0;
-}
-
-has _two_barriers => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_two_barriers',
-);
-
-sub _build_two_barriers {
-    my $self = shift;
-    return (grep { $self->contract_type eq $_ } qw(EXPIRYMISS EXPIRYRANGE)) ? 1 : 0;
-}
-
-has is_intraday => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_is_intraday',
-);
-
-sub _build_is_intraday {
-    my $self = shift;
-    return ($self->timeindays > 1) ? 0 : 1;
-}
-
-has is_atm_contract => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_is_atm_contract',
-);
-
-sub _build_is_atm_contract {
-    my $self = shift;
-    return ($self->_two_barriers or $self->spot != $self->strikes->[0]) ? 0 : 1;
-}
-
-has _formula_args => (
-    is      => 'ro',
-    default => sub { [qw(spot strikes timeinyears discount_rate mu vol payouttime_code)] },
-);
-
 sub required_args {
     return [
         qw(contract_type spot strikes date_start date_pricing date_expiry discount_rate mu vol payouttime_code q_rate r_rate priced_with underlying_symbol market_data market_convention)
@@ -193,20 +228,20 @@ sub risk_markup {
 
     return 0 if $self->error;
 
-    my $market        = $self->underlying_config->{market};
+    my $market        = $self->_underlying_config->{market};
     my $markup_config = _markup_config($market);
-    my $is_intraday   = $self->is_intraday;
+    my $is_intraday   = $self->_is_intraday;
 
     my $risk_markup = 0;
     if ($markup_config->{'traded_market_markup'}) {
         # risk_markup is zero for forward_starting contracts due to complaints from Australian affiliates.
-        return $risk_markup if ($self->is_forward_starting);
+        return $risk_markup if ($self->_is_forward_starting);
 
         my %greek_params = %{$self->_pricing_args};
         $greek_params{vol} = $self->market_data->{get_atm_volatility}->($self->_get_vol_expiry);
         # vol_spread_markup
-        my $spread_type = $self->is_atm_contract ? 'atm' : 'max';
-        my $vol_spread = $self->market_data->{get_vol_spread}->($spread_type, $self->timeindays);
+        my $spread_type = $self->_is_atm_contract ? 'atm' : 'max';
+        my $vol_spread = $self->market_data->{get_vol_spread}->($spread_type, $self->_timeindays);
         my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
         my $bs_vega           = abs($bs_vega_formula->($self->_to_array(\%greek_params)));
         my $vol_spread_markup = max($vol_spread * $bs_vega, 0.07);
@@ -215,8 +250,8 @@ sub risk_markup {
 
         # spot_spread_markup
         if (not $is_intraday) {
-            my $spot_spread_size   = $self->underlying_config->{spot_spread_size} // 50;
-            my $spot_spread_base   = $spot_spread_size * $self->underlying_config->{pip_size};
+            my $spot_spread_size   = $self->_underlying_config->{spot_spread_size} // 50;
+            my $spot_spread_base   = $spot_spread_size * $self->_underlying_config->{pip_size};
             my $bs_delta_formula   = _greek_formula_for('delta', $self->contract_type);
             my $bs_delta           = abs($bs_delta_formula->($self->_to_array(\%greek_params)));
             my $spot_spread_markup = max($spot_spread_base * $bs_delta, 0.01);
@@ -225,8 +260,8 @@ sub risk_markup {
         }
 
         # economic_events_markup
-        if ($markup_config->{'economic_event_markup'} and $is_intraday and $self->timeindays * 86400 > 10) {
-            my $secs_to_expiry  = $self->timeindays * 86400;
+        if ($markup_config->{'economic_event_markup'} and $is_intraday and $self->_timeindays * 86400 > 10) {
+            my $secs_to_expiry  = $self->_timeindays * 86400;
             my $start           = $self->date_start->minus_time_interval('20m');
             my $end             = $self->date_expiry->plus_time_interval('10m');
             my @economic_events = $self->market_data->{get_economic_event}->($self->underlying_symbol, $start, $end);
@@ -282,7 +317,7 @@ sub risk_markup {
         # The rollover time for volsurface is set at NY 1700. However, we are not sure when the actual rollover
         # will happen. Hence we add a 5% markup to the price.
         # if forex or commodities and duration <= 3
-        if ($markup_config->{'end_of_day_markup'} and $self->timeindays <= 3) {
+        if ($markup_config->{'end_of_day_markup'} and $self->_timeindays <= 3) {
             my $ny_1600 = $self->market_convention->{get_rollover_time}->($self->date_start)->minus_time_interval('1h');
             if ($ny_1600->is_before($self->date_start) or ($is_intraday and $ny_1600->is_before($self->date_expiry))) {
                 my $eod_market_risk_markup = 0.05;    # flat 5%
@@ -293,7 +328,7 @@ sub risk_markup {
 
         # This is added for the high butterfly condition where the butterfly is higher than threshold (0.01),
         # then we add the difference between then original probability and adjusted butterfly probability as markup.
-        if ($markup_config->{'butterfly_markup'} and $self->timeindays == $self->market_data->{get_overnight_days}->()) {
+        if ($markup_config->{'butterfly_markup'} and $self->_timeindays == $self->market_data->{get_overnight_days}->()) {
             my $butterfly_cutoff = 0.01;
             my $original_surface = $self->market_data->{get_volsurface_data}->($self->underlying_symbol);
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
@@ -330,14 +365,14 @@ sub commission_markup {
     my $self = shift;
 
     return 0    if $self->error;
-    return 0.03 if $self->is_forward_starting;
+    return 0.03 if $self->_is_forward_starting;
 
     my $comm_file        = LoadFile('/home/git/regentmarkets/bom/lib/BOM/Product/Pricing/Engine/commission.yml');
     my $commission_level = $comm_file->{commission_level}->{$self->underlying_symbol};
-    my $dsp_amount       = $comm_file->{digital_spread_base}->{$self->underlying_config->{market}}->{$self->contract_type} // 0;
+    my $dsp_amount       = $comm_file->{digital_spread_base}->{$self->_underlying_config->{market}}->{$self->contract_type} // 0;
     $dsp_amount /= 100;
     # this is added so that we match the commission of tick trades
-    $dsp_amount /= 2 if $self->timeindays * 86400 <= 20 and $self->is_atm_contract;
+    $dsp_amount /= 2 if $self->_timeindays * 86400 <= 20 and $self->_is_atm_contract;
     # 1.4 is the hard-coded level multiplier
     my $level_multiplier          = 1.4**($commission_level - 1);
     my $digital_spread_percentage = $dsp_amount * $level_multiplier;
@@ -350,12 +385,109 @@ sub commission_markup {
             20  => 1,
             365 => 1,
         });
-    my $dsp_scaling           = $fixed_scaling || $dsp_interp->linear($self->timeinyears);
+    my $dsp_scaling           = $fixed_scaling || $dsp_interp->linear($self->_timeinyears);
     my $digital_spread_markup = $digital_spread_percentage * $dsp_scaling;
     my $commission_markup     = $digital_spread_markup / 2;
 
     return $commission_markup;
 }
+
+## PRIVATE ##
+
+has _underlying_config => (
+    is      => 'ro',
+    lazy    => 1,
+    builder => '_build_underlying_config',
+);
+
+sub _build_underlying_config {
+    my $self = shift;
+    return Finance::Asset->instance->get_parameters_for($self->underlying_symbol);
+}
+
+has _timeindays => (
+    is      => 'ro',
+    lazy    => 1,
+    builder => '_build_timeindays',
+);
+
+sub _build_timeindays {
+    my $self = shift;
+
+    # The FX convention for duration and volatility is to use integer number of days.
+    # We are following this convention partially, < 1 day uses decimal number of days, > 1 uses integer number of days.
+    # We will fix this as we refacter the volsurface.
+    my $ind;
+    if ($self->_underlying_config->{market} eq 'forex') {
+        $ind = $self->market_convention->{calculate_expiry}->($self->date_start, $self->date_expiry);
+    }
+
+    $ind ||= ($self->date_expiry->epoch - $self->date_start->epoch) / 86400;
+
+    return $ind;
+}
+
+has _timeinyears => (
+    is      => 'ro',
+    lazy    => 1,
+    builder => '_build_timeinyears',
+);
+
+sub _build_timeinyears {
+    my $self = shift;
+    return $self->_timeindays / 365;
+}
+
+has _is_forward_starting => (
+    is      => 'ro',
+    lazy    => 1,
+    builder => '_build_is_forward_starting',
+);
+
+sub _build_is_forward_starting {
+    my $self = shift;
+    # 5 seconds is used as the threshold.
+    # if pricing takes more than that, we are in trouble.
+    return ($self->date_start->epoch - $self->date_pricing->epoch > 5) ? 1 : 0;
+}
+
+has _two_barriers => (
+    is      => 'ro',
+    lazy    => 1,
+    builder => '_build_two_barriers',
+);
+
+sub _build_two_barriers {
+    my $self = shift;
+    return (grep { $self->contract_type eq $_ } qw(EXPIRYMISS EXPIRYRANGE)) ? 1 : 0;
+}
+
+has is_intraday => (
+    is      => 'ro',
+    lazy    => 1,
+    builder => '_build_is_intraday',
+);
+
+sub _build_is_intraday {
+    my $self = shift;
+    return ($self->_timeindays > 1) ? 0 : 1;
+}
+
+has _is_atm_contract => (
+    is      => 'ro',
+    lazy    => 1,
+    builder => '_build_is_atm_contract',
+);
+
+sub _build_is_atm_contract {
+    my $self = shift;
+    return ($self->_two_barriers or $self->spot != $self->strikes->[0]) ? 0 : 1;
+}
+
+has _formula_args => (
+    is      => 'ro',
+    default => sub { [qw(spot strikes _timeinyears discount_rate mu vol payouttime_code)] },
+);
 
 sub _calculate_probability {
     my ($self, $modified) = @_;
@@ -366,7 +498,7 @@ sub _calculate_probability {
     if ($contract_type eq 'EXPIRYMISS') {
         $probability = $self->_two_barrier_probability($modified);
     } elsif ($contract_type eq 'EXPIRYRANGE') {
-        my $discounted_probability = exp(-$self->discount_rate * $self->timeinyears);
+        my $discounted_probability = exp(-$self->discount_rate * $self->_timeinyears);
         $self->debug_information->{discounted_probability} = $discounted_probability;
         $probability = $discounted_probability - $self->_two_barrier_probability($modified);
     } else {
@@ -451,7 +583,7 @@ sub _calculate {
     $debug_information{bs_probability}{parameters} = $params;
 
     my $slope_adjustment = 0;
-    unless ($self->is_forward_starting) {
+    unless ($self->_is_forward_starting) {
         my $vanilla_vega_formula = _greek_formula_for('vega', 'vanilla_' . $contract_type);
         my $vanilla_vega = $vanilla_vega_formula->(@pricing_args);
         $debug_information{slope_adjustment}{parameters}{vanilla_vega}{amount}     = $vanilla_vega;
@@ -462,7 +594,7 @@ sub _calculate {
             q_rate => $self->q_rate,
             r_rate => $self->r_rate,
             %{$self->_get_vol_expiry}};
-        my $pip_size = $self->underlying_config->{pip_size};
+        my $pip_size = $self->_underlying_config->{pip_size};
         # Move by pip size either way.
         $vol_args->{strike} = $strike - $pip_size;
         my $down_vol = $self->market_data->{get_volatility}->($vol_args);
@@ -473,7 +605,7 @@ sub _calculate {
         my $base_amount = $contract_type eq 'CALL' ? -1 : 1;
         $slope_adjustment = $base_amount * $vanilla_vega * $slope;
 
-        if ($self->_get_first_tenor_on_surface() > 7 and $self->is_intraday) {
+        if ($self->_get_first_tenor_on_surface() > 7 and $self->_is_intraday) {
             $slope_adjustment = max(-0.03, min(0.03, $slope_adjustment));
         }
         $debug_information{slope_adjustment}{amount} = $slope_adjustment;
@@ -536,8 +668,8 @@ sub _get_first_tenor_on_surface {
 sub _get_vol_expiry {
     my $self = shift;
 
-    return {expiry_date => $self->date_expiry} if $self->underlying_config->{market} eq 'forex';
-    return {days => $self->timeindays};
+    return {expiry_date => $self->date_expiry} if $self->_underlying_config->{market} eq 'forex';
+    return {days => $self->_timeindays};
 }
 
 no Moose;
