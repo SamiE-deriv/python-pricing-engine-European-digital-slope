@@ -3,6 +3,7 @@ package Pricing::Engine::EuropeanDigitalSlope;
 use 5.010;
 use Moose;
 
+use File::ShareDir ();
 use Storable qw(dclone);
 use List::Util qw(min max sum);
 use YAML::CacheLoader qw(LoadFile);
@@ -246,7 +247,7 @@ sub risk_markup {
         my $bs_vega           = abs($bs_vega_formula->($self->_to_array(\%greek_params)));
         my $vol_spread_markup = max($vol_spread * $bs_vega, 0.07);
         $risk_markup += $vol_spread_markup;
-        $self->debug_information->{risk_markup}{vol_spread_markup} = $vol_spread_markup;
+        $self->debug_information->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
 
         # spot_spread_markup
         if (not $is_intraday) {
@@ -256,7 +257,7 @@ sub risk_markup {
             my $bs_delta           = abs($bs_delta_formula->($self->_to_array(\%greek_params)));
             my $spot_spread_markup = max($spot_spread_base * $bs_delta, 0.01);
             $risk_markup += $spot_spread_markup;
-            $self->debug_information->{risk_markup}{spot_spread_markup} = $spot_spread_markup;
+            $self->debug_information->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
         }
 
         # economic_events_markup
@@ -269,8 +270,8 @@ sub risk_markup {
             my $step_size = 100;
             my @triangle_sum = (0) x ($step_size + 1);
             foreach my $event (@economic_events) {
-                my $release_date = $event->release_date;
-                my $scale = $event->get_scaling_factor($self->underlying_symbol, 'spot');
+                my $release_date = $event->{release_date};
+                my $scale        = $event->{spot_scaling_factor};
                 next if not defined $scale;
                 my $x1                 = $release_date->epoch;
                 my $x2                 = $release_date->plus_time_interval('20m')->epoch;
@@ -309,25 +310,24 @@ sub risk_markup {
 
             my $eco_events_spot_risk_markup = sum(@triangle_sum) / $step_size;
             $risk_markup += $eco_events_spot_risk_markup;
-            $self->debug_information->{risk_markup}{economic_event_markup} = $eco_events_spot_risk_markup;
+            $self->debug_information->{risk_markup}{parameters}{economic_event_markup} = $eco_events_spot_risk_markup;
         }
 
         # end of day market risk markup
         # This is added for uncertainty in volatilities during rollover period.
         # The rollover time for volsurface is set at NY 1700. However, we are not sure when the actual rollover
-        # will happen. Hence we add a 5% markup to the price.
-        # if forex or commodities and duration <= 3
+        # will happen. Hence we add a 5% markup to the price. This markup applies to forex and commodities only.
         if ($markup_config->{'end_of_day_markup'} and $self->_timeindays <= 3) {
             my $ny_1600 = $self->market_convention->{get_rollover_time}->($self->date_start)->minus_time_interval('1h');
             if ($ny_1600->is_before($self->date_start) or ($is_intraday and $ny_1600->is_before($self->date_expiry))) {
                 my $eod_market_risk_markup = 0.05;    # flat 5%
                 $risk_markup += $eod_market_risk_markup;
-                $self->debug_information->{risk_markup}{eod_market_risk_markup} = $eod_market_risk_markup;
+                $self->debug_information->{risk_markup}{parameters}{end_of_day_markup} = $eod_market_risk_markup;
             }
         }
 
-        # This is added for the high butterfly condition where the butterfly is higher than threshold (0.01),
-        # then we add the difference between then original probability and adjusted butterfly probability as markup.
+        # This is added for the high butterfly condition where the overnight butterfly is higher than threshold (0.01),
+        # We add the difference between then original probability and adjusted butterfly probability as markup.
         if ($markup_config->{'butterfly_markup'} and $self->_timeindays == $self->market_data->{get_overnight_days}->()) {
             my $butterfly_cutoff = 0.01;
             my $original_surface = $self->market_data->{get_volsurface_data}->($self->underlying_symbol);
@@ -350,13 +350,15 @@ sub risk_markup {
                 my $butterfly_adjusted_prob = $self->_calculate_probability({vol => $vol_after_butterfly_adjustment});
                 my $butterfly_markup = abs($self->probability - $butterfly_adjusted_prob);
                 $risk_markup += $butterfly_markup;
-                $self->debug_information->{risk_markup}{butterfly_markup} = $butterfly_markup;
+                $self->debug_information->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
             }
         }
 
         # risk_markup divided equally on both sides.
         $risk_markup /= 2;
     }
+
+    $self->debug_information->{risk_markup}{amount} = $risk_markup;
 
     return $risk_markup;
 }
@@ -367,7 +369,7 @@ sub commission_markup {
     return 0    if $self->error;
     return 0.03 if $self->_is_forward_starting;
 
-    my $comm_file        = LoadFile('/home/git/regentmarkets/bom/lib/BOM/Product/Pricing/Engine/commission.yml');
+    my $comm_file        = LoadFile(File::ShareDir::dist_file('Pricing-Engine-European-Digital-Slope', 'commission.yml'));
     my $commission_level = $comm_file->{commission_level}->{$self->underlying_symbol};
     my $dsp_amount       = $comm_file->{digital_spread_base}->{$self->_underlying_config->{market}}->{$self->contract_type} // 0;
     $dsp_amount /= 100;
@@ -462,7 +464,7 @@ sub _build_two_barriers {
     return (grep { $self->contract_type eq $_ } qw(EXPIRYMISS EXPIRYRANGE)) ? 1 : 0;
 }
 
-has is_intraday => (
+has _is_intraday => (
     is      => 'ro',
     lazy    => 1,
     builder => '_build_is_intraday',
@@ -671,6 +673,95 @@ sub _get_vol_expiry {
     return {expiry_date => $self->date_expiry} if $self->_underlying_config->{market} eq 'forex';
     return {days => $self->_timeindays};
 }
+
+=head1 AUTHOR
+
+Binary.com, C<< <support at binary.com> >>
+
+=head1 BUGS
+
+Please report any bugs or feature requests to C<bug-pricing-engine-europeandigitalslope at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Pricing-Engine-EuropeanDigitalSlope>.  I will be notified, and then you'll
+automatically be notified of progress on your bug as I make changes.
+
+
+
+
+=head1 SUPPORT
+
+You can find documentation for this module with the perldoc command.
+
+    perldoc Pricing::Engine::EuropeanDigitalSlope
+
+
+You can also look for information at:
+
+=over 4
+
+=item * RT: CPAN's request tracker (report bugs here)
+
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Pricing-Engine-EuropeanDigitalSlope>
+
+=item * AnnoCPAN: Annotated CPAN documentation
+
+L<http://annocpan.org/dist/Pricing-Engine-EuropeanDigitalSlope>
+
+=item * CPAN Ratings
+
+L<http://cpanratings.perl.org/d/Pricing-Engine-EuropeanDigitalSlope>
+
+=item * Search CPAN
+
+L<http://search.cpan.org/dist/Pricing-Engine-EuropeanDigitalSlope/>
+
+=back
+
+
+=head1 ACKNOWLEDGEMENTS
+
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2015 Binary.com.
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of the the Artistic License (2.0). You may obtain a
+copy of the full license at:
+
+L<http://www.perlfoundation.org/artistic_license_2_0>
+
+Any use, modification, and distribution of the Standard or Modified
+Versions is governed by this Artistic License. By using, modifying or
+distributing the Package, you accept this license. Do not use, modify,
+or distribute the Package, if you do not accept this license.
+
+If your Modified Version has been derived from a Modified Version made
+by someone other than you, you are nevertheless required to ensure that
+your Modified Version complies with the requirements of this license.
+
+This license does not grant you the right to use any trademark, service
+mark, tradename, or logo of the Copyright Holder.
+
+This license includes the non-exclusive, worldwide, free-of-charge
+patent license to make, have made, use, offer to sell, sell, import and
+otherwise transfer the Package with respect to any patent claims
+licensable by the Copyright Holder that are necessarily infringed by the
+Package. If you institute patent litigation (including a cross-claim or
+counterclaim) against any party alleging that the Package constitutes
+direct or contributory patent infringement, then this Artistic License
+to you shall terminate on the date that such litigation is filed.
+
+Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
+AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
+THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
+YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
+CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
+CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+=cut
 
 no Moose;
 __PACKAGE__->meta->make_immutable;
