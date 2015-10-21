@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 9;
+use Test::More tests => 10;
 use Test::NoWarnings;
 use Test::Exception;
 
@@ -12,8 +12,8 @@ my $now = Date::Utility->new('2015-10-21')->plus_time_interval('3h');
 # Hard-coded market_data & market_convention.
 # We would not need once those classes are refactored and moved to stratopan.
 my $market_data = {
-    get_vol_spread      => sub {
-        my $type = shift;
+    get_vol_spread => sub {
+        my $type      = shift;
         my %volspread = (
             max => 0.0012,
             atm => 0.0022,
@@ -338,7 +338,7 @@ subtest 'risk_markup' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     $pp->{underlying_symbol} = 'R_100';
     my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    ok !$slope->error, 'no error';
+    ok !$slope->error,                'no error';
     ok !$slope->_is_forward_starting, 'non forward starting contract';
     is $slope->risk_markup, 0, 'risk markup is zero for random market';
 
@@ -351,14 +351,14 @@ subtest 'risk_markup' => sub {
 
     # risk markups for non-intraday stocks
     $pp = _get_params('CALL', 'numeraire');
-    $pp->{date_start} = $now;
-    $pp->{date_expiry} = $now->plus_time_interval('2d');
+    $pp->{date_start}        = $now;
+    $pp->{date_expiry}       = $now->plus_time_interval('2d');
     $pp->{underlying_symbol} = 'FPCS';
-    $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+    $slope                   = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     ok !$slope->_is_intraday, 'non intraday';
     isnt $slope->risk_markup, 0, 'risk markup is not 0';
     is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 2, 'two markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},  'vol spread markup';
     ok exists $slope->debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup';
 
     # risk markups for intraday stocks
@@ -373,13 +373,16 @@ subtest 'risk_markup' => sub {
     $pp = _get_params('CALL', 'numeraire');
     $pp->{underlying_symbol} = 'frxEURUSD';
     $pp->{market_data}->{get_economic_event} = sub {
-        return ({release_date => $now, spot_scaling_factor => 0.12});
+        return ({
+            release_date        => $now,
+            spot_scaling_factor => 0.12
+        });
     };
     $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     ok !$slope->_is_intraday, 'non intraday';
     isnt $slope->risk_markup, 0, 'risk markup is not 0';
     is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 2, 'two markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},  'vol spread markup';
     ok exists $slope->debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup';
 
     # risk markups for intraday forex
@@ -388,7 +391,7 @@ subtest 'risk_markup' => sub {
     ok $slope->_is_intraday, 'intraday';
     isnt $slope->risk_markup, 0, 'risk markup is not 0';
     is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 2, 'two markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},     'vol spread markup';
     ok exists $slope->debug_information->{risk_markup}{parameters}{economic_event_markup}, 'economic event spread markup';
 
     # risk markups for less than 10 seconds forex contract
@@ -404,11 +407,11 @@ subtest 'risk_markup' => sub {
     # end of day markup does not apply for stocks
     $pp = _get_params('CALL', 'numeraire');
     my $second_after_rollover = $now->plus_time_interval('19h1s');
-    $pp->{date_start} = $second_after_rollover;
-    $pp->{date_pricing} = $second_after_rollover;
-    $pp->{date_expiry} = $second_after_rollover->plus_time_interval('1h');
+    $pp->{date_start}        = $second_after_rollover;
+    $pp->{date_pricing}      = $second_after_rollover;
+    $pp->{date_expiry}       = $second_after_rollover->plus_time_interval('1h');
     $pp->{underlying_symbol} = 'FPCS';
-    $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+    $slope                   = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     ok $slope->_is_intraday, 'intraday';
     isnt $slope->risk_markup, 0, 'risk markup is not 0';
     is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 1, 'two markup';
@@ -420,21 +423,21 @@ subtest 'risk_markup' => sub {
     ok $slope->_is_intraday, 'intraday';
     isnt $slope->risk_markup, 0, 'risk markup is not 0';
     is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 3, 'three markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},     'vol spread markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup},     'end of day markup';
     ok exists $slope->debug_information->{risk_markup}{parameters}{economic_event_markup}, 'economic event spread markup';
 
     # butterfly markup
     $pp = _get_params('CALL', 'numeraire');
     $pp->{underlying_symbol} = 'frxEURUSD';
-    $pp->{date_expiry} = $now->plus_time_interval('1d');
-    $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+    $pp->{date_expiry}       = $now->plus_time_interval('1d');
+    $slope                   = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     isnt $slope->risk_markup, 0, 'risk markup is not 0';
     is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 4, 'four markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},     'vol spread markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup},     'end of day markup';
     ok exists $slope->debug_information->{risk_markup}{parameters}{economic_event_markup}, 'economic event markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{butterfly_markup}, 'butterfly markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup';
 
     # no butterfly markup if overnight butterfly is smaller than 0.01
     $pp->{market_data}->{get_market_rr_bf} = sub {
@@ -447,8 +450,8 @@ subtest 'risk_markup' => sub {
     $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     isnt $slope->risk_markup, 0, 'risk markup is not 0';
     is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 3, 'three markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},     'vol spread markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup},     'end of day markup';
     ok exists $slope->debug_information->{risk_markup}{parameters}{economic_event_markup}, 'economic event markup';
 
     $pp->{market_data} = $market_data;
@@ -480,17 +483,17 @@ subtest 'risk_markup' => sub {
     $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     isnt $slope->risk_markup, 0, 'risk markup is not 0';
     is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 3, 'three markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},     'vol spread markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup},     'end of day markup';
     ok exists $slope->debug_information->{risk_markup}{parameters}{economic_event_markup}, 'economic event markup';
 
     # no butterfly markup if not an overnight contract.
     $pp->{market_data} = $market_data;
     $pp->{date_expiry} = $now->plus_time_interval('2d');
-    $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+    $slope             = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     isnt $slope->risk_markup, 0, 'risk markup is not 0';
     is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 2, 'three markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
+    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},  'vol spread markup';
     ok exists $slope->debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup';
 };
 

@@ -369,7 +369,7 @@ sub commission_markup {
     return 0    if $self->error;
     return 0.03 if $self->_is_forward_starting;
 
-    my $comm_file        = LoadFile(File::ShareDir::dist_file('Pricing-Engine-European-Digital-Slope', 'commission.yml'));
+    my $comm_file        = LoadFile(File::ShareDir::dist_file('Pricing-Engine-EuropeanDigitalSlope', 'commission.yml'));
     my $commission_level = $comm_file->{commission_level}->{$self->underlying_symbol};
     my $dsp_amount       = $comm_file->{digital_spread_base}->{$self->_underlying_config->{market}}->{$self->contract_type} // 0;
     $dsp_amount /= 100;
