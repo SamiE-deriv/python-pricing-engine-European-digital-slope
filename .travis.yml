@@ -1,0 +1,25 @@
+sudo: false
+language: perl
+services:
+    - redis-server
+perl:
+    - "5.18"
+    - "5.16"
+    - "5.14"
+    - "5.12"
+before_install:
+    # install prereqs
+    - "cpanm Storable"
+    - "cpanm List::Util"
+    - "cpanm Date::Utility"
+    - "cpanm File::ShareDir"
+    - "cpanm YAML::CacheLoader"
+    - "cpanm Finance::Asset"
+    - "cpanm Math::Function::Interpolator"
+    - "cpanm Math::Business::BlackScholes::Binaries"
+    - "cpanm Math::Business::BlackScholes::Binaries::Greeks::Vega"
+    - "cpanm Math::Business::BlackScholes::Binaries::Greeks::Delta"
+    - "cpanm Test::Perl::Critic"
+    - "cpanm Devel::Cover::Report::Coveralls"
+script:
+    perl Makefile.PL && make test && cover -test -report coveralls
