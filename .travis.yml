@@ -14,12 +14,13 @@ before_install:
     - "cpanm Date::Utility"
     - "cpanm File::ShareDir"
     - "cpanm YAML::CacheLoader"
-    - "cpanm --mirror-only --mirror https://binary:L909ZCquy8Yo6h1L@stratopan.com/binary/Binary/master Finance::Asset"
     - "cpanm Math::Function::Interpolator"
     - "cpanm Math::Business::BlackScholes::Binaries"
     - "cpanm Math::Business::BlackScholes::Binaries::Greeks::Vega"
     - "cpanm Math::Business::BlackScholes::Binaries::Greeks::Delta"
     - "cpanm Test::Perl::Critic"
     - "cpanm Devel::Cover::Report::Coveralls"
+    - "git clone https://60d764d753f8b0b231f5a4ee566d3eeaf5024cdc@github.com/regentmarkets/perl-Finance-Asset /tmp/perl-Finance-Asset"
+    - "cd /tmp/perl-Finance-Asset && perl Makefile.PL && make install"
 script:
     perl Makefile.PL && make test && cover -test -report coveralls
