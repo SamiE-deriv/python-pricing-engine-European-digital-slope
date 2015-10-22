@@ -14,7 +14,7 @@ before_install:
     - "cpanm Date::Utility"
     - "cpanm File::ShareDir"
     - "cpanm YAML::CacheLoader"
-    - "cpanm Finance::Asset"
+    - "cpanm --mirror-only --mirror https://binary:L909ZCquy8Yo6h1L@stratopan.com/binary/Binary/master Finance::Asset"
     - "cpanm Math::Function::Interpolator"
     - "cpanm Math::Business::BlackScholes::Binaries"
     - "cpanm Math::Business::BlackScholes::Binaries::Greeks::Vega"
