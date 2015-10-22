@@ -120,9 +120,6 @@ A hash reference of subroutine references to fetch market data.
         get_volatility => sub {
             return $volsurface_obj->get_volatility(@_);
         },
-        get_economic_event => sub {
-            ...
-        },
         ...
     };
 
@@ -258,59 +255,6 @@ sub risk_markup {
             my $spot_spread_markup = max($spot_spread_base * $bs_delta, 0.01);
             $risk_markup += $spot_spread_markup;
             $self->debug_information->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
-        }
-
-        # economic_events_markup
-        if ($markup_config->{'economic_event_markup'} and $is_intraday and $self->_timeindays * 86400 > 10) {
-            my $secs_to_expiry  = $self->_timeindays * 86400;
-            my $start           = $self->date_start->minus_time_interval('20m');
-            my $end             = $self->date_expiry->plus_time_interval('10m');
-            my @economic_events = $self->market_data->{get_economic_event}->($self->underlying_symbol, $start, $end);
-
-            my $step_size = 100;
-            my @triangle_sum = (0) x ($step_size + 1);
-            foreach my $event (@economic_events) {
-                my $release_date = $event->{release_date};
-                my $scale        = $event->{spot_scaling_factor};
-                next if not defined $scale;
-                my $x1                 = $release_date->epoch;
-                my $x2                 = $release_date->plus_time_interval('20m')->epoch;
-                my $y1                 = $scale;
-                my $y2                 = 0;
-                my $triangle_slope     = ($y1 - $y2) / ($x1 - $x2);
-                my $intercept          = $y1 - $triangle_slope * $x1;
-                my $epsilon            = $secs_to_expiry / $step_size;
-                my $t                  = $self->date_start->epoch;
-                my $primary_sum        = (3 / 4 * $scale * 600) / $epsilon;
-                my $primary_sum_index  = 0;
-                my $ten_minutes_after  = $release_date->plus_time_interval('10m');
-                my $ten_minutes_before = $release_date->plus_time_interval('10m');
-
-                my @triangle;
-# for intervals between $bet->effective_start->epoch and $bet->date_expiry->epoch
-                for (0 .. $step_size) {
-                    my $height = 0;
-                    $primary_sum_index++ if $t <= $x1;
-                    if ($t >= $ten_minutes_after->epoch and $t <= $x2) {
-                        $height = $triangle_slope * $t + $intercept;
-                    }
-                    push @triangle, $height;
-                    $t += $epsilon;
-                }
-
-                if (    $self->date_start->epoch <= $ten_minutes_after->epoch
-                    and $self->date_expiry->epoch >= $ten_minutes_before->epoch)
-                {
-                    $primary_sum_index = min($primary_sum_index, $#triangle);
-                    $triangle[$primary_sum_index] = $primary_sum;
-                }
-
-                @triangle_sum = map { max($triangle_sum[$_], $triangle[$_]) } (0 .. $#triangle);
-            }
-
-            my $eco_events_spot_risk_markup = sum(@triangle_sum) / $step_size;
-            $risk_markup += $eco_events_spot_risk_markup;
-            $self->debug_information->{risk_markup}{parameters}{economic_event_markup} = $eco_events_spot_risk_markup;
         }
 
         # end of day market risk markup
@@ -646,8 +590,8 @@ sub _markup_config {
     my $market = shift;
 
     my $config = {
-        forex       => [qw(traded_market_markup economic_event_markup end_of_day_markup butterfly_markup)],
-        commodities => [qw(traded_market_markup economic_event_markup end_of_day_markup)],
+        forex       => [qw(traded_market_markup end_of_day_markup butterfly_markup)],
+        commodities => [qw(traded_market_markup end_of_day_markup)],
         stocks      => [qw(traded_market_markup)],
         indices     => [qw(traded_market_markup)],
         futures     => [qw(traded_market_markup)],
