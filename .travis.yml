@@ -10,6 +10,7 @@ before_install:
     - "cpanm List::Util"
     - "cpanm Date::Utility"
     - "cpanm File::ShareDir"
+    - "cpanm File::ShareDir::Install"
     - "cpanm YAML::XS"
     - "cpanm Math::Function::Interpolator"
     - "cpanm Math::Business::BlackScholes::Binaries"
