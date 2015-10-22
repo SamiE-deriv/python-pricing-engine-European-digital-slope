@@ -3,17 +3,14 @@ language: perl
 services:
     - redis-server
 perl:
-    - "5.18"
-    - "5.16"
-    - "5.14"
-    - "5.12"
+    - "5.14.2"
 before_install:
     # install prereqs
     - "cpanm Storable"
     - "cpanm List::Util"
     - "cpanm Date::Utility"
     - "cpanm File::ShareDir"
-    - "cpanm YAML::CacheLoader"
+    - "cpanm YAML::XS"
     - "cpanm Math::Function::Interpolator"
     - "cpanm Math::Business::BlackScholes::Binaries"
     - "cpanm Math::Business::BlackScholes::Binaries::Greeks::Vega"
@@ -21,8 +18,7 @@ before_install:
     - "cpanm Test::Perl::Critic"
     - "cpanm Moose"
     - "cpanm MooseX::Singleton"
-    - "cpanm Devel::Cover::Report::Coveralls"
     - "git clone https://60d764d753f8b0b231f5a4ee566d3eeaf5024cdc@github.com/regentmarkets/perl-Finance-Asset /tmp/perl-Finance-Asset"
     - "cd /tmp/perl-Finance-Asset && perl Makefile.PL && make install"
 script:
-    perl Makefile.PL && make test && cover -test -report coveralls
+    perl Makefile.PL && make test

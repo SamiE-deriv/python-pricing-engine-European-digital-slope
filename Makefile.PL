@@ -16,7 +16,6 @@ WriteMakefile(
     AUTHOR             => q{Binary.com <support@binary.com>},
     VERSION_FROM       => 'lib/Pricing/Engine/EuropeanDigitalSlope.pm',
     ABSTRACT_FROM      => 'lib/Pricing/Engine/EuropeanDigitalSlope.pm',
-    LICENSE            => 'artistic_2',
     PL_FILES           => {},
     MIN_PERL_VERSION   => 5.006,
     CONFIGURE_REQUIRES => {
@@ -35,7 +34,7 @@ WriteMakefile(
         'List::Util'                                            => 0,
         'Date::Utility'                                         => 0,
         'File::ShareDir'                                        => 0,
-        'YAML::CacheLoader'                                     => 0.018,
+        'YAML:XS        '                                       => 0,
         'Finance::Asset'                                        => 0,
         'Math::Function::Interpolator'                          => 0,
         'Math::Business::BlackScholes::Binaries'                => 0,
