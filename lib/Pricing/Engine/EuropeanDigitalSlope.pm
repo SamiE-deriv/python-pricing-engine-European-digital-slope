@@ -257,6 +257,14 @@ sub risk_markup {
             $self->debug_information->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
         }
 
+        # Generally for indices and stocks the minimum available tenor for smile is 30 days.
+        # We use this to price short term contracts, so adding a 5% markup for the volatility uncertainty.
+        if ($markup_config->{smile_uncertainty_markup} and $self->_timeindays < 7 and not $self->_is_atm_contract) {
+            my $smile_uncertainty_markup = 0.05;
+            $risk_markup += $smile_uncertainty_markup;
+            $self->debug_information->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
+        }
+
         # end of day market risk markup
         # This is added for uncertainty in volatilities during rollover period.
         # The rollover time for volsurface is set at NY 1700. However, we are not sure when the actual rollover
@@ -592,10 +600,8 @@ sub _markup_config {
     my $config = {
         forex       => [qw(traded_market_markup end_of_day_markup butterfly_markup)],
         commodities => [qw(traded_market_markup end_of_day_markup)],
-        stocks      => [qw(traded_market_markup)],
-        indices     => [qw(traded_market_markup)],
-        futures     => [qw(traded_market_markup)],
-        sectors     => [qw(traded_market_markup)],
+        stocks      => [qw(traded_market_markup smile_uncertainty_markup)],
+        indices     => [qw(traded_market_markup smile_uncertainty_markup)],
     };
 
     my $markups = $config->{$market} // [];

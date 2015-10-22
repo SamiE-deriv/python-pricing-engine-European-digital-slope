@@ -69,9 +69,6 @@ my $market_data = {
     get_atm_volatility => sub {
         return 0.11;
     },
-    get_economic_event => sub {
-        return ();
-    },
     get_overnight_days => sub {
         return 1;
     },
@@ -334,7 +331,14 @@ subtest 'expiry before start' => sub {
     };
 };
 
-subtest 'risk_markup' => sub {
+my %underlyings = (
+    forex => 'frxEURUSD',
+    indices => 'AEX',
+    stocks => 'INICICIBC',
+    commodities => 'frxXAUUSD',
+);
+
+subtest 'zero risk markup' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     $pp->{underlying_symbol} = 'R_100';
     my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
@@ -348,60 +352,129 @@ subtest 'risk_markup' => sub {
     ok !$slope->error, 'no error';
     ok $slope->_is_forward_starting, 'forward starting contract';
     is $slope->risk_markup, 0, 'risk markup is 0 for forward starting contract';
+};
 
-    # risk markups for non-intraday stocks
-    $pp = _get_params('CALL', 'numeraire');
-    $pp->{date_start}        = $now;
-    $pp->{date_expiry}       = $now->plus_time_interval('2d');
-    $pp->{underlying_symbol} = 'FPCS';
-    $slope                   = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    ok !$slope->_is_intraday, 'non intraday';
-    isnt $slope->risk_markup, 0, 'risk markup is not 0';
-    is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 2, 'two markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},  'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup';
+# vol spread markup will always be applied.
+# so will just check for it as we tests other markups.
 
-    # risk markups for intraday stocks
-    $pp->{date_expiry} = $now->plus_time_interval('10h');
-    $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    ok $slope->_is_intraday, 'intraday';
-    isnt $slope->risk_markup, 0, 'risk markup is not 0';
-    is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 1, 'one markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
+subtest 'spot spread markup' => sub {
+    my $pp = _get_params('CALL', 'numeraire');
+    foreach my $market (keys %underlyings) {
+        note("market: $market, $underlyings{$market}");
+        $pp->{underlying_symbol} = $underlyings{$market};
+        $pp->{date_expiry} = $now->plus_time_interval('24h');
+        my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        ok $slope->_is_intraday, 'is intraday';
+        $slope->risk_markup;
+        ok !exists $slope->debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup will not be applied to intraday contract';
+        ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup will apply to intraday contract';
+        # By right we should we testing for 1day 1 seconds here.
+        # But due to FX convention of integer number of days, 2 days work for every market.
+        $pp->{date_expiry} = $now->plus_time_interval('2d');
+        $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        ok !$slope->_is_intraday, 'non intraday';
+        $slope->risk_markup;
+        ok exists $slope->debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup will be applied to non intraday contract';
+        ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup will apply to non intraday contract';
+        ok $slope->debug_information->{risk_markup}{parameters}{spot_spread_markup} > 0, 'spot spread markup is > 0';
+    }
+};
 
-    # end of day markup does not apply for stocks
-    $pp = _get_params('CALL', 'numeraire');
-    my $second_after_rollover = $now->plus_time_interval('19h1s');
-    $pp->{date_start}        = $second_after_rollover;
-    $pp->{date_pricing}      = $second_after_rollover;
-    $pp->{date_expiry}       = $second_after_rollover->plus_time_interval('1h');
-    $pp->{underlying_symbol} = 'FPCS';
-    $slope                   = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    ok $slope->_is_intraday, 'intraday';
-    isnt $slope->risk_markup, 0, 'risk markup is not 0';
-    is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 1, 'two markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
+subtest 'smile uncertainty markup' => sub {
+    my $pp = _get_params('CALL', 'numeraire');
+    foreach my $market (qw(indices stocks)) {
+        note("market: $market, $underlyings{$market}");
+        $pp->{underlying_symbol} = $underlyings{$market};
+        $pp->{date_expiry} = $now->plus_time_interval('6d');
+        $pp->{strikes} = [100];
+        my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        ok $slope->_is_atm_contract, 'ATM contract';
+        is $slope->_timeindays, 6, 'timeindays < 7';
+        $slope->risk_markup;
+        ok !exists $slope->debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will not be applied to less than 7 days ATM contract';
+        $pp->{date_expiry} = $now->plus_time_interval('7d');
+        $pp->{strikes} = [101];
+        $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        ok !$slope->_is_atm_contract, 'non ATM contract';
+        is $slope->_timeindays, 7, 'timeindays == 7';
+        $slope->risk_markup;
+        ok !exists $slope->debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will not be applied to 7 days non-ATM contract';
+        $pp->{date_expiry} = $now->plus_time_interval('6d');
+        $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        ok !$slope->_is_atm_contract, 'non ATM contract';
+        is $slope->_timeindays, 6, 'timeindays < 7';
+        $slope->risk_markup;
+        ok exists $slope->debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will be applied to less than 7 days non-ATM contract';
+        is $slope->debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 0.05, 'smile uncertainty markup is 0.05';
+    }
 
-    # end of day markup does apply for forex
-    $pp->{underlying_symbol} = 'frxEURUSD';
-    $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    ok $slope->_is_intraday, 'intraday';
-    isnt $slope->risk_markup, 0, 'risk markup is not 0';
-    is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 3, 'three markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},     'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup},     'end of day markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{economic_event_markup}, 'economic event spread markup';
+    foreach my $market (qw(forex commodities)) {
+        note("market: $market, $underlyings{$market}");
+        $pp->{underlying_symbol} = $underlyings{$market};
+        $pp->{strikes} = [101];
+        $pp->{date_expiry} = $now->plus_time_interval('6d');
+        my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        ok !$slope->_is_atm_contract, 'non ATM contract';
+        is $slope->_timeindays, 6, 'timeindays < 7';
+        $slope->risk_markup;
+        ok !exists $slope->debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will not apply to less than 7 days non-ATM contract';
+    }
+};
 
-    # butterfly markup
-    $pp = _get_params('CALL', 'numeraire');
-    $pp->{underlying_symbol} = 'frxEURUSD';
+# The condition for this markup is a little confusing.
+# Trying to test this with best effort.
+subtest 'end of day markup' => sub {
+    my $pp = _get_params('CALL', 'numeraire');
+    foreach my $market (qw(forex commodities)) {
+        note("market: $market, $underlyings{$market}");
+        $pp->{underlying_symbol} = $underlyings{$market};
+        $pp->{date_expiry} = $now->plus_time_interval('4d');
+        my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        $slope->risk_markup;
+        ok $slope->_timeindays > 3, 'timeindays > 3';
+        ok !exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup will not be applied to duration more than 3 days';
+        note("rollover time: 22:00, volatility uncertainty starts one hour before/after");
+        note("contract start: " . $now->datetime);
+        $pp->{date_expiry} = $now->plus_time_interval('17h59s');
+        $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        $slope->risk_markup;
+        ok $slope->_timeindays < 3, 'timeindays < 3';
+        ok !exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup will not be applied to contract expiring before 21:00';
+        $pp->{date_start} = $pp->{date_pricing} = $now->truncate_to_day->plus_time_interval('21h1s');
+        $pp->{date_expiry} = $pp->{date_start}->plus_time_interval('3h');
+        $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        $slope->risk_markup;
+        ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup will be applied to intraday contract that starts after 21:00 GMT';
+    }
+
+    foreach my $market (qw(stocks indices)) {
+        note("market: $market, $underlyings{$market}");
+        $pp->{underlying_symbol} = $underlyings{$market};
+        $pp->{date_start} = $pp->{date_pricing} = $now->truncate_to_day->plus_time_interval('21h1s');
+        $pp->{date_expiry} = $pp->{date_start}->plus_time_interval('3h');
+        my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        $slope->risk_markup;
+        ok !exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup will not be applied to intraday contract that starts after 21:00 GMT';
+    }
+};
+
+subtest 'butterfly markup' => sub {
+    my $pp = _get_params('CALL', 'numeraire');
+    foreach my $market (qw(stocks indices commodities)) {
+        note("market: $market, $underlyings{$market}");
+        $pp->{underlying_symbol} = $underlyings{$market};
+        $pp->{date_expiry}       = $now->plus_time_interval('1d');
+        $slope                   = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        $slope->risk_markup;
+        ok !exists $slope->debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup';
+    }
+
+    my $market = 'forex';
+    note("market: $market, $underlyings{$market}");
+    $pp->{underlying_symbol} = $underlyings{$market};
     $pp->{date_expiry}       = $now->plus_time_interval('1d');
     $slope                   = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    isnt $slope->risk_markup, 0, 'risk markup is not 0';
-    is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 4, 'four markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},     'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup},     'end of day markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{economic_event_markup}, 'economic event markup';
+    $slope->risk_markup;
     ok exists $slope->debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup';
 
     # no butterfly markup if overnight butterfly is smaller than 0.01
@@ -413,11 +486,8 @@ subtest 'risk_markup' => sub {
         };
     };
     $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    isnt $slope->risk_markup, 0, 'risk markup is not 0';
-    is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 3, 'three markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},     'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup},     'end of day markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{economic_event_markup}, 'economic event markup';
+    $slope->risk_markup;
+    ok !exists $slope->debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup will not be applied if the overnight butterfly is smaller than 0.01';
 
     $pp->{market_data} = $market_data;
     # no butterfly markup if there's no overnight tenor on volsurface
@@ -446,21 +516,17 @@ subtest 'risk_markup' => sub {
         };
     };
     $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    isnt $slope->risk_markup, 0, 'risk markup is not 0';
-    is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 3, 'three markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},     'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup},     'end of day markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{economic_event_markup}, 'economic event markup';
+    $slope->risk_markup;
+    ok !exists $slope->debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup will not be applied if there is no overnight smile on the volatility surface';
 
     # no butterfly markup if not an overnight contract.
     $pp->{market_data} = $market_data;
     $pp->{date_expiry} = $now->plus_time_interval('2d');
-    $slope             = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    isnt $slope->risk_markup, 0, 'risk markup is not 0';
-    is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 2, 'three markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},  'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup';
+    $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+    $slope->risk_markup;
+    ok !exists $slope->debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup will not be applied if it is not an overnight contract';
 };
+
 
 subtest 'commission markup' => sub {
     my $pp = _get_params('CALL', 'numeraire');
