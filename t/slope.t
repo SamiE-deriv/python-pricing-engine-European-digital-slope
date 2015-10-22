@@ -369,41 +369,6 @@ subtest 'risk_markup' => sub {
     is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 1, 'one markup';
     ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
 
-    # risk markups for non-intraday forex
-    $pp = _get_params('CALL', 'numeraire');
-    $pp->{underlying_symbol} = 'frxEURUSD';
-    $pp->{market_data}->{get_economic_event} = sub {
-        return ({
-            release_date        => $now,
-            spot_scaling_factor => 0.12
-        });
-    };
-    $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    ok !$slope->_is_intraday, 'non intraday';
-    isnt $slope->risk_markup, 0, 'risk markup is not 0';
-    is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 2, 'two markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},  'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup';
-
-    # risk markups for intraday forex
-    $pp->{date_expiry} = $now->plus_time_interval('10h');
-    $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    ok $slope->_is_intraday, 'intraday';
-    isnt $slope->risk_markup, 0, 'risk markup is not 0';
-    is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 2, 'two markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup},     'vol spread markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{economic_event_markup}, 'economic event spread markup';
-
-    # risk markups for less than 10 seconds forex contract
-    # we do not apply economic event markup for contracts with less than 10 seconds in duration
-    # this mainly happens during sell back.
-    $pp->{date_expiry} = $now->plus_time_interval('9s');
-    $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    ok $slope->_is_intraday, 'intraday';
-    isnt $slope->risk_markup, 0, 'risk markup is not 0';
-    is scalar keys %{$slope->debug_information->{risk_markup}{parameters}}, 1, 'two markup';
-    ok exists $slope->debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup';
-
     # end of day markup does not apply for stocks
     $pp = _get_params('CALL', 'numeraire');
     my $second_after_rollover = $now->plus_time_interval('19h1s');
