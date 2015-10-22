@@ -6,7 +6,7 @@ use Moose;
 use File::ShareDir ();
 use Storable qw(dclone);
 use List::Util qw(min max sum);
-use YAML::CacheLoader qw(LoadFile);
+use YAML::XS qw(LoadFile);
 use Finance::Asset;
 use Math::Function::Interpolator;
 use Math::Business::BlackScholes::Binaries;
@@ -369,7 +369,7 @@ sub commission_markup {
     return 0    if $self->error;
     return 0.03 if $self->_is_forward_starting;
 
-    my $comm_file        = LoadFile(File::ShareDir::dist_file('Pricing-Engine-EuropeanDigitalSlope', 'commission.yml'));
+    state $comm_file        = LoadFile(File::ShareDir::dist_file('Pricing-Engine-EuropeanDigitalSlope', 'commission.yml'));
     my $commission_level = $comm_file->{commission_level}->{$self->underlying_symbol};
     my $dsp_amount       = $comm_file->{digital_spread_base}->{$self->_underlying_config->{market}}->{$self->contract_type} // 0;
     $dsp_amount /= 100;
@@ -678,88 +678,11 @@ sub _get_vol_expiry {
 
 Binary.com, C<< <support at binary.com> >>
 
-=head1 BUGS
-
-Please report any bugs or feature requests to C<bug-pricing-engine-europeandigitalslope at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Pricing-Engine-EuropeanDigitalSlope>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
-
-
-
-
 =head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
     perldoc Pricing::Engine::EuropeanDigitalSlope
-
-
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker (report bugs here)
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Pricing-Engine-EuropeanDigitalSlope>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Pricing-Engine-EuropeanDigitalSlope>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Pricing-Engine-EuropeanDigitalSlope>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/Pricing-Engine-EuropeanDigitalSlope/>
-
-=back
-
-
-=head1 ACKNOWLEDGEMENTS
-
-
-=head1 LICENSE AND COPYRIGHT
-
-Copyright 2015 Binary.com.
-
-This program is free software; you can redistribute it and/or modify it
-under the terms of the the Artistic License (2.0). You may obtain a
-copy of the full license at:
-
-L<http://www.perlfoundation.org/artistic_license_2_0>
-
-Any use, modification, and distribution of the Standard or Modified
-Versions is governed by this Artistic License. By using, modifying or
-distributing the Package, you accept this license. Do not use, modify,
-or distribute the Package, if you do not accept this license.
-
-If your Modified Version has been derived from a Modified Version made
-by someone other than you, you are nevertheless required to ensure that
-your Modified Version complies with the requirements of this license.
-
-This license does not grant you the right to use any trademark, service
-mark, tradename, or logo of the Copyright Holder.
-
-This license includes the non-exclusive, worldwide, free-of-charge
-patent license to make, have made, use, offer to sell, sell, import and
-otherwise transfer the Package with respect to any patent claims
-licensable by the Copyright Holder that are necessarily infringed by the
-Package. If you institute patent litigation (including a cross-claim or
-counterclaim) against any party alleging that the Package constitutes
-direct or contributory patent infringement, then this Artistic License
-to you shall terminate on the date that such litigation is filed.
-
-Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
-THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
-YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
-CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
-CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
 
 =cut
 
