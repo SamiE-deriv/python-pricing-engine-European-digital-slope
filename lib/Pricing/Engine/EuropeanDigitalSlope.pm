@@ -2,6 +2,7 @@ package Pricing::Engine::EuropeanDigitalSlope;
 
 use 5.010;
 use Moose;
+use Moose::Util::TypeConstraints;
 
 use File::ShareDir ();
 use Storable qw(dclone);
@@ -12,6 +13,9 @@ use Math::Function::Interpolator;
 use Math::Business::BlackScholes::Binaries;
 use Math::Business::BlackScholes::Binaries::Greeks::Vega;
 use Math::Business::BlackScholes::Binaries::Greeks::Delta;
+
+subtype 'date_object', as 'Date::Utility';
+coerce 'date_object', from 'Str', via { Date::Utility->new($_) };
 
 =head1 NAME
 
@@ -34,9 +38,9 @@ our $VERSION = '1.00';
       underlying_symbol => 'frxUSDJPY',
       spot => $spot,
       strikes => [$strike], # an array reference of strikes. [$strike1, $strike2] for multiple strikes contracts
-      date_start => $date_start,
-      date_pricing => $date_pricing,
-      date_expiry => $date_expiry,
+      date_start => $date_start, # epoch or Date::Utility object
+      date_pricing => $date_pricing, # epoch or Date::Utility object
+      date_expiry => $date_expiry, # epoch or Date::Utility object
       mu => $mu,
       vol => $vol,
       discount_rate => $discount_rate, # payout currency rate
@@ -74,18 +78,6 @@ The spot value of the underlying instrument.
 
 The strike{s) of the contract. (Array Reference)
 
-=head2 date_start
-
-The start time of the contract.
-
-=head2 date_pricing
-
-The time of which the contract is priced.
-
-=head2 date_expiry
-
-The expiration time of the contract.
-
 =head2 discount_rate
 
 The interest rate of the payout currency
@@ -105,12 +97,31 @@ Is this a base, numeraire or quanto contract.
 
 =cut
 
-has [
-    qw(contract_type spot strikes date_start date_pricing date_expiry discount_rate mu vol payouttime_code q_rate r_rate priced_with underlying_symbol)
-    ] => (
+has [qw(contract_type spot strikes discount_rate mu vol payouttime_code q_rate r_rate priced_with underlying_symbol)] => (
     is       => 'ro',
     required => 1,
-    );
+);
+
+=head2 date_start
+
+The start time of the contract. Is a Date::Utility object.
+
+=head2 date_pricing
+
+The time of which the contract is priced. Is a Date::Utility object.
+
+=head2 date_expiry
+
+The expiration time of the contract. Is a Date::Utility object.
+
+=cut
+
+has [qw(date_start date_pricing date_expiry)] => (
+    is       => 'ro',
+    isa      => 'date_object',
+    required => 1,
+    coerce   => 1,
+);
 
 =head2 market_data
 
@@ -159,29 +170,19 @@ has error => (
     default  => '',
 );
 
-=head2 supported_contract_types
-
-Contract types that this engine can price.
-
-=cut
-
-has supported_contract_types => (
-    is      => 'ro',
-    default => sub {
-        return {
-            CALL        => 1,
-            PUT         => 1,
-            EXPIRYMISS  => 1,
-            EXPIRYRANGE => 1
-        };
-    },
-);
+# Contract types supported by this engine.
+state $supported_types = {
+    CALL        => 1,
+    PUT         => 1,
+    EXPIRYMISS  => 1,
+    EXPIRYRANGE => 1
+};
 
 sub BUILD {
     my $self = shift;
 
     my $contract_type = $self->contract_type;
-    unless ($self->supported_contract_types->{$contract_type}) {
+    unless ($supported_types->{$contract_type}) {
         $self->error('Unsupported contract type [' . $contract_type . '] for ' . __PACKAGE__);
     }
 
@@ -321,9 +322,9 @@ sub commission_markup {
     return 0    if $self->error;
     return 0.03 if $self->_is_forward_starting;
 
-    state $comm_file        = LoadFile(File::ShareDir::dist_file('Pricing-Engine-EuropeanDigitalSlope', 'commission.yml'));
+    state $comm_file = LoadFile(File::ShareDir::dist_file('Pricing-Engine-EuropeanDigitalSlope', 'commission.yml'));
     my $commission_level = $comm_file->{commission_level}->{$self->underlying_symbol};
-    my $dsp_amount       = $comm_file->{digital_spread_base}->{$self->_underlying_config->{market}}->{$self->contract_type} // 0;
+    my $dsp_amount = $comm_file->{digital_spread_base}->{$self->_underlying_config->{market}}->{$self->contract_type} // 0;
     $dsp_amount /= 100;
     # this is added so that we match the commission of tick trades
     $dsp_amount /= 2 if $self->_timeindays * 86400 <= 20 and $self->_is_atm_contract;
