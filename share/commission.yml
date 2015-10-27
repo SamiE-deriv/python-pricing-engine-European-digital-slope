@@ -1,4 +1,7 @@
 ---
+#The commission_level represents the scaling according to which the commissions are adjusted to.
+#Level 1 represents the lowest level and is used for more liquid instruments, while Level 3 is the highest.
+#All synthetic instruments are assigned a value of 3.
 commission_level:
   AEX: 1
   AORD: 1
@@ -365,6 +368,9 @@ commission_level:
   frxXPTEUR: 2
   frxXPTGBP: 2
   frxXPTUSD: 3
+#digital_spread_base reflects our uncernatinty regarding a particular contract type on a given market.
+#higher the number, higher the adjustment to price.
+#this is further multiplied by the commission_level given above in this file.
 digital_spread_base:
   commodities:
     CALL: 4
@@ -457,6 +463,9 @@ digital_spread_base:
     UPORDOWN: 3
     ONETOUCH: 3
     NOTOUCH: 3
+#digital_scaling_factor is a coefficient needed to scale the commissions level as per duration.
+#it is higher for shorter duraton contracts.
+#Randoms have been assigned a value of 1, while for financial instruments it is scaled as per duration
 digital_scaling_factor:
   R_50: 1
   RDBULL: 1
