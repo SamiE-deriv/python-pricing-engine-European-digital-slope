@@ -13,12 +13,12 @@ my $now = Date::Utility->new('2015-10-21')->plus_time_interval('3h');
 # We would not need once those classes are refactored and moved to stratopan.
 my $market_data = {
     get_vol_spread => sub {
-        my $type      = shift;
+        my $args      = shift;
         my %volspread = (
             max => 0.0012,
             atm => 0.0022,
         );
-        return $volspread{$type};
+        return $volspread{$args->{sought_point}};
     },
     get_volsurface_data => sub {
         return {
@@ -69,7 +69,7 @@ my $market_data = {
     get_atm_volatility => sub {
         return 0.11;
     },
-    get_overnight_days => sub {
+    get_overnight_tenor => sub {
         return 1;
     },
 };

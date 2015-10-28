@@ -252,6 +252,12 @@ state $markup_config = {
     random => {},
 };
 
+=head2 BUILD
+
+Sanity check after object creation.
+
+=cut
+
 sub BUILD {
     my $self = shift;
 
@@ -275,11 +281,23 @@ sub BUILD {
     return;
 }
 
+=head2 required_args
+
+Required arguments for this engine to work.
+
+=cut
+
 sub required_args {
     return [
         qw(contract_type spot strikes date_start date_pricing date_expiry discount_rate mu vol payouttime_code q_rate r_rate priced_with underlying_symbol market_data market_convention)
     ];
 }
+
+=head2 bs_probability
+
+BlackScholes probability
+
+=cut
 
 sub bs_probability {
     my $self = shift;
@@ -289,12 +307,24 @@ sub bs_probability {
     return $bs_formula->($self->_to_array($self->_pricing_args));
 }
 
+=head2 probability
+
+Theoretical probability
+
+=cut
+
 sub probability {
     my $self = shift;
 
     return 1 if $self->error;
     return $self->_calculate_probability;
 }
+
+=head2 risk_markup
+
+Risk markup imposed by this engine
+
+=cut
 
 sub risk_markup {
     my $self = shift;
@@ -393,6 +423,11 @@ sub risk_markup {
     return $risk_markup;
 }
 
+=head2 commission_markup
+
+Commission markup imposed by this engine
+
+=cut
 sub commission_markup {
     my $self = shift;
 
