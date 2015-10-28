@@ -178,6 +178,28 @@ state $supported_types = {
     EXPIRYRANGE => 1
 };
 
+state $markup_config = {
+    forex => {
+        traded_market_markup => 1,
+        end_of_day_markup    => 1,
+        butterfly_markup     => 1
+    },
+    commodities => {
+        traded_market_markup => 1,
+        end_of_day_markup    => 1,
+    },
+    stocks => {
+        traded_market_markup     => 1,
+        smile_uncertainty_markup => 1,
+    },
+    indices => {
+        traded_market_markup     => 1,
+        smile_uncertainty_markup => 1,
+    },
+    random => {},
+};
+
+
 sub BUILD {
     my $self = shift;
 
@@ -228,7 +250,7 @@ sub risk_markup {
     return 0 if $self->error;
 
     my $market        = $self->_underlying_config->{market};
-    my $markup_config = _markup_config($market);
+    my $markup_config = $markup_config->{$market};
     my $is_intraday   = $self->_is_intraday;
 
     my $risk_markup = 0;
@@ -593,21 +615,6 @@ sub _to_array {
     my ($self, $params) = @_;
     my @array = map { ref $params->{$_} eq 'ARRAY' ? @{$params->{$_}} : $params->{$_} } @{$self->_formula_args};
     return @array;
-}
-
-sub _markup_config {
-    my $market = shift;
-
-    my $config = {
-        forex       => [qw(traded_market_markup end_of_day_markup butterfly_markup)],
-        commodities => [qw(traded_market_markup end_of_day_markup)],
-        stocks      => [qw(traded_market_markup smile_uncertainty_markup)],
-        indices     => [qw(traded_market_markup smile_uncertainty_markup)],
-    };
-
-    my $markups = $config->{$market} // [];
-
-    return {map { $_ => 1 } @$markups};
 }
 
 sub _get_first_tenor_on_surface {
