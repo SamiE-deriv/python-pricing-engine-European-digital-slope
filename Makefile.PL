@@ -17,7 +17,7 @@ WriteMakefile(
     VERSION_FROM       => 'lib/Pricing/Engine/EuropeanDigitalSlope.pm',
     ABSTRACT_FROM      => 'lib/Pricing/Engine/EuropeanDigitalSlope.pm',
     PL_FILES           => {},
-    MIN_PERL_VERSION   => 5.006,
+    MIN_PERL_VERSION   => 5.14.0,
     CONFIGURE_REQUIRES => {
         'ExtUtils::MakeMaker' => 0,
     },
@@ -34,7 +34,7 @@ WriteMakefile(
         'List::Util'                                            => 0,
         'Date::Utility'                                         => 0,
         'File::ShareDir'                                        => 0,
-        'YAML:XS        '                                       => 0,
+        'YAML::XS'                                              => 0,
         'Finance::Asset'                                        => 0,
         'Math::Function::Interpolator'                          => 0,
         'Math::Business::BlackScholes::Binaries'                => 0,
