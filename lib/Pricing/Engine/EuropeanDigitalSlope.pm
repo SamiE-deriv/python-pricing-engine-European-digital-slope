@@ -83,9 +83,20 @@ The strike{s) of the contract. (Array Reference)
 The interest rate of the payout currency
 
 =head2 mu
+
+drift
+
 =head2 vol
+
+volatility of the underlying instrument.
+
 =head2 q_rate
+
+asset rate of the underlying instrument.
+
 =head2 r_rate
+
+quoted currency rate of the underlying instrument.
 
 =head2 underlying_symbol
 
@@ -127,22 +138,57 @@ has [qw(date_start date_pricing date_expiry)] => (
 
 A hash reference of subroutine references to fetch market data.
 
-    my $market_data = {
-        get_volatility => sub {
-            return $volsurface_obj->get_volatility(@_);
-        },
-        ...
-    };
+- get_vol_spread: Expects a underlying_symbol, spread_type and timeindays as input. Returns a vol spread number.
+
+my $vol_spread = $market_data->{get_vol_spread}->('atm', 7);
+
+- get_volsurface_data: Expects nothing as input. Returns a hash reference of volsurface data.
+
+my $surface_data = $market_data->{get_volsurface_data}->();
+
+- get_market_rr_bf: Expects timeindays as input. Returns a hash reference of 25 risk reversal and 25 butterfly information.
+
+my $market_rr_bf = $market_data->{get_market_rr_bf}->(7);
+
+- get_volatility: Expects a hash refernce of volatility argument as input. Optional input: surface data. Returns a volatility number.
+
+my $vol = $market_data->{get_volatility}->({delta => 50, days =>7});
+my $surface_data = {
+    7 => {
+        smile => {
+            75 => 0.1,
+            50 => 0.11,
+            25 => 0.25
+        }
+    },
+    14 => {
+        smile => {
+            75 => 0.12,
+            50 => 0.21,
+            25 => 0.21
+        }
+    },
+};
+
+# To get volatility with a modified surface.
+$vol = $market_data->{get_volatility}->({delta => 50, expiry_date => $date_obj}, $surface_data);
+
+- get_atm_volatility: Expects a hash reference as input. Returns a volatility number.
+
+my $atm_vol = $market_data->{get_atm_volatility}->({expiry_date => Date::Utility->new});
+$atm_vol = $market_data->{get_atm_volatility}->({days => 7});
 
 =head2 market_convention
 
 A hash reference of subroutine references to fetch market convention.
 
-    my $market_convetion = {
-        get_rollover_time => sub {
-            ...
-        };
-    };
+- get_rollover_time: Rollover time is of which a volsurface is expected to rollover to the next trading day. Expects a date as input. Returns Date::Utility object of the rollover time.
+
+my $rollover_time = $market_data->{get_rollover_time}->(Date::Utility->new);
+
+- calculate_expiry: Expects a start and end Date::Utility object. Returns a number.
+
+my $expiry = $market_data->{calculate_expiry}->(Date::Utility->new, Date::Utility->new->plus_time_interval('1d'));
 
 =cut
 
@@ -155,7 +201,7 @@ has [qw(market_data market_convention)] => (
 
 =head2 debug_information
 
-A hash reference of information that construct probability, risk_markup and commission_markup.
+Logging output.
 
 =cut
 
@@ -163,6 +209,12 @@ has debug_information => (
     is      => 'rw',
     default => sub { {} },
 );
+
+=head2 error
+
+Error thrown while calculating probability or markups.
+
+=cut
 
 has error => (
     is       => 'rw',
@@ -198,7 +250,6 @@ state $markup_config = {
     },
     random => {},
 };
-
 
 sub BUILD {
     my $self = shift;
@@ -262,7 +313,10 @@ sub risk_markup {
         $greek_params{vol} = $self->market_data->{get_atm_volatility}->($self->_get_vol_expiry);
         # vol_spread_markup
         my $spread_type = $self->_is_atm_contract ? 'atm' : 'max';
-        my $vol_spread = $self->market_data->{get_vol_spread}->($spread_type, $self->_timeindays);
+        my $vol_spread = $self->market_data->{get_vol_spread}->({
+            sought_point => $spread_type,
+            day          => $self->_timeindays
+        });
         my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
         my $bs_vega           = abs($bs_vega_formula->($self->_to_array(\%greek_params)));
         my $vol_spread_markup = max($vol_spread * $bs_vega, 0.07);
@@ -303,12 +357,12 @@ sub risk_markup {
 
         # This is added for the high butterfly condition where the overnight butterfly is higher than threshold (0.01),
         # We add the difference between then original probability and adjusted butterfly probability as markup.
-        if ($markup_config->{'butterfly_markup'} and $self->_timeindays == $self->market_data->{get_overnight_days}->()) {
+        if ($markup_config->{'butterfly_markup'} and $self->_timeindays == $self->market_data->{get_overnight_tenor}->()) {
             my $butterfly_cutoff = 0.01;
             my $original_surface = $self->market_data->{get_volsurface_data}->($self->underlying_symbol);
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
             my $market_rr_bf     = $self->market_data->{get_market_rr_bf}->($first_term);
-            if ($first_term == $self->market_data->{get_overnight_days}->() and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
+            if ($first_term == $self->market_data->{get_overnight_tenor}->() and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
                 my $original_bf = $market_rr_bf->{BF_25};
                 my $original_rr = $market_rr_bf->{RR_25};
                 my ($atm, $c25, $c75) = map { $original_surface->{$first_term}{smile}{$_} } qw(50 25 75);
