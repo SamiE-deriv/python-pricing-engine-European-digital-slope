@@ -34,6 +34,7 @@ Since Vega of a European plain vanilla option is always positive, the digital ca
 
 Usage:
 
+~~~~
   use Pricing::Engine::EuropeanDigitalSlope;
 
   my $now = time;
@@ -71,3 +72,4 @@ Usage:
   Final probability
   my $probability = $pe->probability;
 
+~~~~
