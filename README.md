@@ -1,7 +1,9 @@
 # perl-Pricing-Engine-European-Digital-Slope
 European Digital options Pricing Engine for Binary.com.
 
-This model is a pricing algorithm for European Digital Options. European digital options have a payout of 1 or 0 at expiry, depending on the expiring conditions. The most common pricing method for european digitals is using tight-call spread, wherein vanilla options are used to replicate the payoff of the required digital option.
+This model is a pricing algorithm for European Digital Options. European digital options have a payout of 1 or 0 at expiry, depending on the expiring conditions.
+
+The most common pricing method (not the one implemented by this library) for european digitals is using tight-call spread, wherein vanilla options are used to replicate the payoff of the required digital option.
 
 ~~~~
 
