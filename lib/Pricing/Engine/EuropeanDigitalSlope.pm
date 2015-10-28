@@ -50,20 +50,23 @@ our $VERSION = '1.00';
       payouttime_code => 0, # boolean. True if the contract payouts at hit, false otherwise
       priced_with => 'numeraire', # numeraire, base or quanto?
       market_data => $market_data, # hash reference of subroutine reference to fetch market data
-      market_convention => $market_data, # hash reference of subroutine reference to fetch market convention information
+      market_convention => $market_convention, # hash reference of subroutine reference to fetch market convention information
   );
 
-  To get the base probability for the contract:
+  To get the blackscholes probability for the contract:
   my $bs_probability = $pe->bs_probability;
 
-  To get the theretical probability for the contract:
-  my $probability    = $pe->probability;
+  To get the theoretical probability for the contract:
+  my $theo_probability    = $pe->theo_probability;
 
   To get the risk markups for the contract:
   my $risk_markup    = $pe->risk_markup;
 
   To get the commission imposed by this model:
   my $commission_markup = $pe->commission_markup;
+
+  Final probability
+  my $probability = $pe->probability;
 
 =head1 ATTRIBUTES
 
@@ -293,9 +296,21 @@ sub required_args {
     ];
 }
 
+=head2 probability
+
+Final probability of the contract.
+
+=cut
+
+sub probability {
+    my $self = shift;
+
+    return $self->theo_probability + $self->risk_markup + $self->commission_markup;
+}
+
 =head2 bs_probability
 
-BlackScholes probability
+BlackScholes probability.
 
 =cut
 
@@ -307,13 +322,13 @@ sub bs_probability {
     return $bs_formula->($self->_to_array($self->_pricing_args));
 }
 
-=head2 probability
+=head2 theo_probability
 
-Theoretical probability
+Theoretical probability.
 
 =cut
 
-sub probability {
+sub theo_probability {
     my $self = shift;
 
     return 1 if $self->error;
@@ -322,7 +337,7 @@ sub probability {
 
 =head2 risk_markup
 
-Risk markup imposed by this engine
+Risk markup imposed by this engine.
 
 =cut
 
@@ -425,9 +440,10 @@ sub risk_markup {
 
 =head2 commission_markup
 
-Commission markup imposed by this engine
+Commission markup imposed by this engine.
 
 =cut
+
 sub commission_markup {
     my $self = shift;
 
