@@ -3,6 +3,42 @@ European Digital options Pricing Engine for Binary.com.
 
 This model is a pricing algorithm for European Digital Options. European digital options have a payout of 1 or 0 at expiry, depending on the expiring conditions. The most common pricing method for european digitals is using tight-call spread, wherein vanilla options are used to replicate the payoff of the required digital option.
 
+Usage:
+
+  use Pricing::Engine::EuropeanDigitalSlope;
+
+  my $now = time;
+  my $pe = Pricing::Engine::EuropeanDigitalSlope->new(
+      contract_type => 'CALL' # supports CALL, PUT, EXPIRYMISS and EXPIRYRANGE
+      underlying_symbol => 'frxUSDJPY',
+      spot => 120, # spot price of the underlying instrument
+      strikes => [121], # an array reference of strikes. [$strike1, $strike2] for multiple strikes contracts
+      date_start => $now, # epoch or Date::Utility object
+      date_pricing => $now, # epoch or Date::Utility object
+      date_expiry => $now + 86400, # epoch or Date::Utility object
+      mu => 0.001, # drift
+      vol => 0.1, # 10% volatility
+      discount_rate => 0.001, # payout currency rate
+      r_rate => 0.0023, # quoted currency rate
+      q_rate => 0.0021, # asset rate
+      payouttime_code => 0, # boolean. True if the contract payouts at hit, false otherwise
+      priced_with => 'numeraire', # numeraire, base or quanto?
+      market_data => $market_data, # hash reference of subroutine reference to fetch market data
+      market_convention => $market_data, # hash reference of subroutine reference to fetch market convention information
+  );
+
+  To get the base probability for the contract:
+  my $bs_probability = $pe->bs_probability;
+
+  To get the theretical probability for the contract:
+  my $probability = $pe->probability;
+
+  To get the risk markups for the contract:
+  my $risk_markup = $pe->risk_markup;
+
+  To get the commission imposed by this model:
+  my $commission_markup = $pe->commission_markup;
+
 ~~~~
 
 Tight Call spread (static replica approach)

@@ -33,21 +33,22 @@ our $VERSION = '1.00';
 
   use Pricing::Engine::EuropeanDigitalSlope;
 
+  my $now = time;
   my $pe = Pricing::Engine::EuropeanDigitalSlope->new(
       contract_type => 'CALL' # supports CALL, PUT, EXPIRYMISS and EXPIRYRANGE
       underlying_symbol => 'frxUSDJPY',
-      spot => $spot,
-      strikes => [$strike], # an array reference of strikes. [$strike1, $strike2] for multiple strikes contracts
-      date_start => $date_start, # epoch or Date::Utility object
-      date_pricing => $date_pricing, # epoch or Date::Utility object
-      date_expiry => $date_expiry, # epoch or Date::Utility object
-      mu => $mu,
-      vol => $vol,
-      discount_rate => $discount_rate, # payout currency rate
-      r_rate => $r_rate,
-      q_rate => $q_rate,
-      payouttime_code => $payouttime_code, # boolean. True if the contract payouts at hit, false otherwise
-      priced_with => $priced_with, # numeraire, base or quanto?
+      spot => 120,
+      strikes => [121], # an array reference of strikes. [$strike1, $strike2] for multiple strikes contracts
+      date_start => $now, # epoch or Date::Utility object
+      date_pricing => $now, # epoch or Date::Utility object
+      date_expiry => $now + 86400, # epoch or Date::Utility object
+      mu => 0.001,
+      vol => 0.1, 10% volatility
+      discount_rate => 0.001, # payout currency rate
+      r_rate => 0.0023,
+      q_rate => 0.0021,
+      payouttime_code => 0, # boolean. True if the contract payouts at hit, false otherwise
+      priced_with => 'numeraire', # numeraire, base or quanto?
       market_data => $market_data, # hash reference of subroutine reference to fetch market data
       market_convention => $market_data, # hash reference of subroutine reference to fetch market convention information
   );
@@ -84,7 +85,7 @@ The interest rate of the payout currency
 
 =head2 mu
 
-drift
+The drift of the underlying instrument.
 
 =head2 vol
 
