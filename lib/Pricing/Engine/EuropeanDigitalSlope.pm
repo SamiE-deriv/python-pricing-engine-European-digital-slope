@@ -65,7 +65,7 @@ our $VERSION = '1.00';
   To get the commission imposed by this model:
   my $commission_markup = $pe->commission_markup;
 
-  Final probability
+  Final probability (theo_probability + risk_markup + commission_markup)
   my $probability = $pe->probability;
 
 =head1 ATTRIBUTES
@@ -423,7 +423,7 @@ sub risk_markup {
                 };
                 my $vol_after_butterfly_adjustment = $self->market_data->{get_volatility}->($vol_args, $cloned_surface_data);
                 my $butterfly_adjusted_prob = $self->_calculate_probability({vol => $vol_after_butterfly_adjustment});
-                my $butterfly_markup = abs($self->probability - $butterfly_adjusted_prob);
+                my $butterfly_markup = abs($self->theo_probability - $butterfly_adjusted_prob);
                 $risk_markup += $butterfly_markup;
                 $self->debug_information->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
             }

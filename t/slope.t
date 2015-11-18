@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 10;
+use Test::More tests => 14;
 use Test::NoWarnings;
 use Test::Exception;
 
@@ -122,9 +122,9 @@ subtest 'CALL probability' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     my $numeraire = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     is $numeraire->priced_with, 'numeraire';
-    ok looks_like_number($numeraire->probability), 'probability looks like number';
-    ok $numeraire->probability <= 1, 'probability <= 1';
-    ok $numeraire->probability >= 0, 'probability >= 0';
+    ok looks_like_number($numeraire->theo_probability), 'probability looks like number';
+    ok $numeraire->theo_probability <= 1, 'probability <= 1';
+    ok $numeraire->theo_probability >= 0, 'probability >= 0';
     is scalar keys %{$numeraire->debug_information}, 1, 'only one set of debug information';
     ok exists $numeraire->debug_information->{CALL}, 'parameters for CALL';
     my $p   = $numeraire->debug_information->{CALL};
@@ -141,9 +141,9 @@ subtest 'CALL probability' => sub {
     $pp = _get_params('CALL', 'quanto');
     $quanto = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     is $quanto->priced_with, 'quanto';
-    ok looks_like_number($quanto->probability), 'probability looks like number';
-    ok $quanto->probability <= 1, 'probability <= 1';
-    ok $quanto->probability >= 0, 'probability >= 0';
+    ok looks_like_number($quanto->theo_probability), 'probability looks like number';
+    ok $quanto->theo_probability <= 1, 'probability <= 1';
+    ok $quanto->theo_probability >= 0, 'probability >= 0';
     is scalar keys %{$quanto->debug_information}, 1, 'only one set of debug information';
     ok exists $quanto->debug_information->{CALL}, 'parameters for CALL';
     $p   = $quanto->debug_information->{CALL};
@@ -160,9 +160,9 @@ subtest 'CALL probability' => sub {
     $pp = _get_params('CALL', 'base');
     $base = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     is $base->priced_with, 'base';
-    ok looks_like_number($base->probability), 'probability looks like number';
-    ok $base->probability <= 1, 'probability <= 1';
-    ok $base->probability >= 0, 'probability >= 0';
+    ok looks_like_number($base->theo_probability), 'probability looks like number';
+    ok $base->theo_probability <= 1, 'probability <= 1';
+    ok $base->theo_probability >= 0, 'probability >= 0';
     is scalar keys %{$base->debug_information}, 1, 'only one set of debug information';
     ok exists $base->debug_information->{CALL}, 'parameters for CALL';
     $p = $base->debug_information->{CALL};
@@ -185,9 +185,9 @@ subtest 'EXPIRYMISS probability' => sub {
     my $pp = _get_params('EXPIRYMISS', 'numeraire');
     my $numeraire = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     is $numeraire->priced_with, 'numeraire';
-    ok looks_like_number($numeraire->probability), 'probability looks like number';
-    ok $numeraire->probability <= 1, 'probability <= 1';
-    ok $numeraire->probability >= 0, 'probability >= 0';
+    ok looks_like_number($numeraire->theo_probability), 'probability looks like number';
+    ok $numeraire->theo_probability <= 1, 'probability <= 1';
+    ok $numeraire->theo_probability >= 0, 'probability >= 0';
     is scalar keys %{$numeraire->debug_information}, 2, 'only one set of debug information';
     ok exists $numeraire->debug_information->{CALL}, 'parameters for CALL';
     ok exists $numeraire->debug_information->{PUT},  'parameters for PUT';
@@ -223,9 +223,9 @@ subtest 'EXPIRYRANGE probability' => sub {
     my $pp = _get_params('EXPIRYRANGE', 'numeraire');
     my $numeraire = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     is $numeraire->priced_with, 'numeraire';
-    ok looks_like_number($numeraire->probability), 'probability looks like number';
-    ok $numeraire->probability <= 1, 'probability <= 1';
-    ok $numeraire->probability >= 0, 'probability >= 0';
+    ok looks_like_number($numeraire->theo_probability), 'probability looks like number';
+    ok $numeraire->theo_probability <= 1, 'probability <= 1';
+    ok $numeraire->theo_probability >= 0, 'probability >= 0';
     is scalar keys %{$numeraire->debug_information}, 3, 'only one set of debug information';
     ok exists $numeraire->debug_information->{CALL},                   'parameters for CALL';
     ok exists $numeraire->debug_information->{PUT},                    'parameters for PUT';
@@ -264,7 +264,7 @@ subtest 'unsupported contract_type' => sub {
         my $pp = _get_params('unsupported', 'numeraire');
         $pp->{strikes} = [100];
         my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        is $slope->probability,       1,                             'probabilility is 1';
+        is $slope->theo_probability,       1,                             'probabilility is 1';
         is $slope->bs_probability,    1,                             'probabilility is 1';
         ok $slope->error,             'has error';
         like $slope->error,           qr/Unsupported contract type/, 'correct error message';
@@ -279,7 +279,7 @@ subtest 'unregconized priced_with' => sub {
         my $pp = _get_params('CALL', 'unregconized');
         $pp->{discount_rate} = 0.01;
         my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        is $slope->probability,       1,                            'probabilility is 1';
+        is $slope->theo_probability,       1,                            'probabilility is 1';
         is $slope->bs_probability,    1,                            'probabilility is 1';
         is $slope->risk_markup,       0,                            'risk_markup is zero';
         is $slope->commission_markup, 0,                            'commission_markup is zero';
@@ -296,7 +296,7 @@ subtest 'barrier error' => sub {
         my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         ok $slope->error,             'has error';
         like $slope->error,           qr/Barrier error for/, 'correct error message';
-        is $slope->probability,       1, 'probabilility is 1';
+        is $slope->theo_probability,       1, 'probabilility is 1';
         is $slope->bs_probability,    1, 'probabilility is 1';
         is $slope->risk_markup,       0, 'risk_markup is zero';
         is $slope->commission_markup, 0, 'commission_markup is zero';
@@ -309,7 +309,7 @@ subtest 'barrier error' => sub {
         my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         ok $slope->error,             'has error';
         like $slope->error,           qr/Barrier error for/, 'correct error message';
-        is $slope->probability,       1, 'probabilility is 1';
+        is $slope->theo_probability,       1, 'probabilility is 1';
         is $slope->bs_probability,    1, 'probabilility is 1';
         is $slope->risk_markup,       0, 'risk_markup is zero';
         is $slope->commission_markup, 0, 'commission_markup is zero';
@@ -324,7 +324,7 @@ subtest 'expiry before start' => sub {
         my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         ok $slope->error,             'has error';
         like $slope->error,           qr/Date expiry is before date start/, 'correct error message';
-        is $slope->probability,       1, 'probabilility is 1';
+        is $slope->theo_probability,       1, 'probabilility is 1';
         is $slope->bs_probability,    1, 'probabilility is 1';
         is $slope->risk_markup,       0, 'risk_markup is zero';
         is $slope->commission_markup, 0, 'commission_markup is zero';
