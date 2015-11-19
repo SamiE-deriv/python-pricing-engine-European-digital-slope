@@ -365,7 +365,7 @@ sub risk_markup {
         });
         my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
         my $bs_vega           = abs($bs_vega_formula->($self->_to_array(\%greek_params)));
-        my $vol_spread_markup = max($vol_spread * $bs_vega, 0.07);
+        my $vol_spread_markup = min($vol_spread * $bs_vega, 0.7);
         $risk_markup += $vol_spread_markup;
         $self->debug_information->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
 
@@ -375,7 +375,7 @@ sub risk_markup {
             my $spot_spread_base   = $spot_spread_size * $self->_underlying_config->{pip_size};
             my $bs_delta_formula   = _greek_formula_for('delta', $self->contract_type);
             my $bs_delta           = abs($bs_delta_formula->($self->_to_array(\%greek_params)));
-            my $spot_spread_markup = max($spot_spread_base * $bs_delta, 0.01);
+            my $spot_spread_markup = max(0,min($spot_spread_base * $bs_delta, 0.01));
             $risk_markup += $spot_spread_markup;
             $self->debug_information->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
         }
@@ -423,7 +423,7 @@ sub risk_markup {
                 };
                 my $vol_after_butterfly_adjustment = $self->market_data->{get_volatility}->($vol_args, $cloned_surface_data);
                 my $butterfly_adjusted_prob = $self->_calculate_probability({vol => $vol_after_butterfly_adjustment});
-                my $butterfly_markup = abs($self->theo_probability - $butterfly_adjusted_prob);
+                my $butterfly_markup = min(0.1, abs($self->theo_probability - $butterfly_adjusted_prob));
                 $risk_markup += $butterfly_markup;
                 $self->debug_information->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
             }
