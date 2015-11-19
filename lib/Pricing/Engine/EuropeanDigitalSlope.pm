@@ -468,7 +468,7 @@ sub commission_markup {
             20  => 1,
             365 => 1,
         });
-    my $dsp_scaling           = $fixed_scaling || $dsp_interp->linear($self->_timeinyears);
+    my $dsp_scaling           = $fixed_scaling || $dsp_interp->linear($self->_timeindays);
     my $digital_spread_markup = $digital_spread_percentage * $dsp_scaling;
     my $commission_markup     = $digital_spread_markup / 2;
 
