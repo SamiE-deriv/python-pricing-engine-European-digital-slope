@@ -14,8 +14,8 @@ use Math::Business::BlackScholes::Binaries;
 use Math::Business::BlackScholes::Binaries::Greeks::Vega;
 use Math::Business::BlackScholes::Binaries::Greeks::Delta;
 
-subtype 'date_object', as 'Date::Utility';
-coerce 'date_object', from 'Str', via { Date::Utility->new($_) };
+subtype 'Pricing::Engine::EuropeanDigitalSlope::DateObject', as 'Date::Utility';
+coerce 'Pricing::Engine::EuropeanDigitalSlope::DateObject', from 'Str', via { Date::Utility->new($_) };
 
 =head1 NAME
 
@@ -133,7 +133,7 @@ The expiration time of the contract. Is a Date::Utility object.
 
 has [qw(date_start date_pricing date_expiry)] => (
     is       => 'ro',
-    isa      => 'date_object',
+    isa      => 'Pricing::Engine::EuropeanDigitalSlope::DateObject',
     required => 1,
     coerce   => 1,
 );
@@ -304,7 +304,6 @@ Final probability of the contract.
 
 sub probability {
     my $self = shift;
-
     return $self->theo_probability + $self->risk_markup + $self->commission_markup;
 }
 
