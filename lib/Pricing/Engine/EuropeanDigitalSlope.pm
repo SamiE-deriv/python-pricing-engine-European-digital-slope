@@ -14,8 +14,8 @@ use Math::Business::BlackScholes::Binaries;
 use Math::Business::BlackScholes::Binaries::Greeks::Vega;
 use Math::Business::BlackScholes::Binaries::Greeks::Delta;
 
-subtype 'date_object', as 'Date::Utility';
-coerce 'date_object', from 'Str', via { Date::Utility->new($_) };
+subtype 'Pricing::Engine::EuropeanDigitalSlope::DateObject', as 'Date::Utility';
+coerce 'Pricing::Engine::EuropeanDigitalSlope::DateObject', from 'Str', via { Date::Utility->new($_) };
 
 =head1 NAME
 
@@ -23,11 +23,11 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =head1 VERSION
 
-Version 1.00
+Version 1.03
 
 =cut
 
-our $VERSION = '1.00';
+our $VERSION = '1.03';
 
 =head1 SYNOPSIS
 
@@ -65,7 +65,7 @@ our $VERSION = '1.00';
   To get the commission imposed by this model:
   my $commission_markup = $pe->commission_markup;
 
-  Final probability
+  Final probability (theo_probability + risk_markup + commission_markup)
   my $probability = $pe->probability;
 
 =head1 ATTRIBUTES
@@ -133,7 +133,7 @@ The expiration time of the contract. Is a Date::Utility object.
 
 has [qw(date_start date_pricing date_expiry)] => (
     is       => 'ro',
-    isa      => 'date_object',
+    isa      => 'Pricing::Engine::EuropeanDigitalSlope::DateObject',
     required => 1,
     coerce   => 1,
 );
@@ -304,7 +304,6 @@ Final probability of the contract.
 
 sub probability {
     my $self = shift;
-
     return $self->theo_probability + $self->risk_markup + $self->commission_markup;
 }
 
@@ -365,7 +364,7 @@ sub risk_markup {
         });
         my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
         my $bs_vega           = abs($bs_vega_formula->($self->_to_array(\%greek_params)));
-        my $vol_spread_markup = max($vol_spread * $bs_vega, 0.07);
+        my $vol_spread_markup = min($vol_spread * $bs_vega, 0.7);
         $risk_markup += $vol_spread_markup;
         $self->debug_information->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
 
@@ -375,7 +374,7 @@ sub risk_markup {
             my $spot_spread_base   = $spot_spread_size * $self->_underlying_config->{pip_size};
             my $bs_delta_formula   = _greek_formula_for('delta', $self->contract_type);
             my $bs_delta           = abs($bs_delta_formula->($self->_to_array(\%greek_params)));
-            my $spot_spread_markup = max($spot_spread_base * $bs_delta, 0.01);
+            my $spot_spread_markup = max(0,min($spot_spread_base * $bs_delta, 0.01));
             $risk_markup += $spot_spread_markup;
             $self->debug_information->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
         }
@@ -423,7 +422,7 @@ sub risk_markup {
                 };
                 my $vol_after_butterfly_adjustment = $self->market_data->{get_volatility}->($vol_args, $cloned_surface_data);
                 my $butterfly_adjusted_prob = $self->_calculate_probability({vol => $vol_after_butterfly_adjustment});
-                my $butterfly_markup = abs($self->probability - $butterfly_adjusted_prob);
+                my $butterfly_markup = min(0.1, abs($self->theo_probability - $butterfly_adjusted_prob));
                 $risk_markup += $butterfly_markup;
                 $self->debug_information->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
             }
@@ -468,7 +467,7 @@ sub commission_markup {
             20  => 1,
             365 => 1,
         });
-    my $dsp_scaling           = $fixed_scaling || $dsp_interp->linear($self->_timeinyears);
+    my $dsp_scaling           = $fixed_scaling || $dsp_interp->linear($self->_timeindays);
     my $digital_spread_markup = $digital_spread_percentage * $dsp_scaling;
     my $commission_markup     = $digital_spread_markup / 2;
 
