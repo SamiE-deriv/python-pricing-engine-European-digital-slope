@@ -3,6 +3,9 @@
 #Level 1 represents the lowest level and is used for more liquid instruments, while Level 3 is the highest.
 #All synthetic instruments are assigned a value of 3.
 commission_level:
+  DFMGI: 5
+  JCI: 4
+  SASEIDX: 5
   AEX: 1
   AORD: 1
   AS51: 1
