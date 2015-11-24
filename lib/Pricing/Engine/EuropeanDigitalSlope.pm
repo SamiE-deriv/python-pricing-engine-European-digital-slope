@@ -449,7 +449,7 @@ sub commission_markup {
     return 0    if $self->error;
 
     # 5% commission for middle eastern submarket
-    return 0.05 if ($self->_underlying_config->{submarket} eq 'middle_eastern');
+    return 0.05 if ($self->_underlying_config->{submarket} eq 'middle_east');
 
     # 3% commission for forward starting contracts
     return 0.03 if $self->_is_forward_starting;
