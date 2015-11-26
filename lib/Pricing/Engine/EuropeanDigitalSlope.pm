@@ -13,6 +13,7 @@ use Math::Function::Interpolator;
 use Math::Business::BlackScholes::Binaries;
 use Math::Business::BlackScholes::Binaries::Greeks::Vega;
 use Math::Business::BlackScholes::Binaries::Greeks::Delta;
+use Machine::Epsilon;
 
 subtype 'Pricing::Engine::EuropeanDigitalSlope::DateObject', as 'Date::Utility';
 coerce 'Pricing::Engine::EuropeanDigitalSlope::DateObject', from 'Str', via { Date::Utility->new($_) };
@@ -23,11 +24,11 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =head1 VERSION
 
-Version 1.05
+Version 1.07
 
 =cut
 
-our $VERSION = '1.05';
+our $VERSION = '1.07';
 
 =head1 SYNOPSIS
 
@@ -304,7 +305,8 @@ Final probability of the contract.
 
 sub probability {
     my $self = shift;
-    return $self->theo_probability + $self->risk_markup + $self->commission_markup;
+    my $final_probability = $self->theo_probability + $self->risk_markup + $self->commission_markup;
+    return max(0,min(1,$final_probability));
 }
 
 =head2 bs_probability
@@ -331,7 +333,7 @@ sub theo_probability {
     my $self = shift;
 
     return 1 if $self->error;
-    return $self->_calculate_probability;
+    return max(0,min(1,$self->_calculate_probability));
 }
 
 =head2 risk_markup
@@ -510,6 +512,11 @@ sub _build_timeindays {
     }
 
     $ind ||= ($self->date_expiry->epoch - $self->date_start->epoch) / 86400;
+    # Preventing duration to go to zero when date_pricing == date_expiry
+    # Zero duration will cause pricing calculation error
+    # Capping duration at 730 days
+    my $epsilon = machine_epsilon();
+    $ind = min(730,max($epsilon, $ind));
 
     return $ind;
 }
