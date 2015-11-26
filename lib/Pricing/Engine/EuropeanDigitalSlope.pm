@@ -13,6 +13,7 @@ use Math::Function::Interpolator;
 use Math::Business::BlackScholes::Binaries;
 use Math::Business::BlackScholes::Binaries::Greeks::Vega;
 use Math::Business::BlackScholes::Binaries::Greeks::Delta;
+use Machine::Epsilon;
 
 subtype 'Pricing::Engine::EuropeanDigitalSlope::DateObject', as 'Date::Utility';
 coerce 'Pricing::Engine::EuropeanDigitalSlope::DateObject', from 'Str', via { Date::Utility->new($_) };
@@ -510,6 +511,11 @@ sub _build_timeindays {
     }
 
     $ind ||= ($self->date_expiry->epoch - $self->date_start->epoch) / 86400;
+    # Preventing duration to go to zero when date_pricing == date_expiry
+    # Zero duration will cause pricing calculation error
+    # Capping duration at 730 days
+    my $epsilon = machine_epsilon();
+    $ind = min(730,max($epsilon, $ind));
 
     return $ind;
 }
