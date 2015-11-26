@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 14;
+use Test::More tests => 15;
 use Test::NoWarnings;
 use Test::Exception;
 
@@ -533,5 +533,15 @@ subtest 'commission markup' => sub {
     lives_ok {
         $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         ok $slope->commission_markup;
+    }
+};
+
+subtest 'zero duration' => sub {
+    my $pp = _get_params('CALL', 'numeraire');
+    $pp->{date_pricing} = $pp->{date_expiry};
+    lives_ok {
+        $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        cmp_ok $slope->date_expiry->epoch, "==", $slope->date_pricing->epoch, 'date_pricing == date_expiry';
+        isnt $slope->_timeinyears, 0, 'timeinyears isnt zero';
     }
 };
