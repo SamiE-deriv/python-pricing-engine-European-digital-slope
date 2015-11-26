@@ -305,7 +305,8 @@ Final probability of the contract.
 
 sub probability {
     my $self = shift;
-    return $self->theo_probability + $self->risk_markup + $self->commission_markup;
+    my $final_probability = $self->theo_probability + $self->risk_markup + $self->commission_markup;
+    return max(0,min(1,$final_probability));
 }
 
 =head2 bs_probability
@@ -332,7 +333,7 @@ sub theo_probability {
     my $self = shift;
 
     return 1 if $self->error;
-    return $self->_calculate_probability;
+    return max(0,min(1,$self->_calculate_probability));
 }
 
 =head2 risk_markup
