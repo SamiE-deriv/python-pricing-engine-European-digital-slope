@@ -24,11 +24,11 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =head1 VERSION
 
-Version 1.07
+Version 1.08
 
 =cut
 
-our $VERSION = '1.07';
+our $VERSION = '1.08';
 
 =head1 SYNOPSIS
 
@@ -450,8 +450,8 @@ sub commission_markup {
 
     return 0    if $self->error;
 
-    # 5% commission for middle eastern submarket
-    return 0.05 if ($self->_underlying_config->{submarket} eq 'middle_east');
+    # 5% commission for middle eastern submarket and jakarta
+    return 0.05 if ($self->_underlying_config->{submarket} eq 'middle_east' or $self->underlying_symbol eq 'JCI');
 
     # 3% commission for forward starting contracts
     return 0.03 if $self->_is_forward_starting;
