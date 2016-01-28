@@ -28,7 +28,7 @@ Version 1.08
 
 =cut
 
-our $VERSION = '1.08';
+our $VERSION = '1.09';
 
 =head1 SYNOPSIS
 
@@ -461,7 +461,7 @@ sub commission_markup {
     my $dsp_amount = $comm_file->{digital_spread_base}->{$self->_underlying_config->{market}}->{$self->contract_type} // 0;
     $dsp_amount /= 100;
     # this is added so that we match the commission of tick trades
-    $dsp_amount /= 2 if $self->_timeindays * 86400 <= 20 and $self->_is_atm_contract;
+    $dsp_amount *= 2/3 if $self->_timeindays * 86400 <= 20 and $self->_is_atm_contract;
     # 1.4 is the hard-coded level multiplier
     my $level_multiplier          = 1.4**($commission_level - 1);
     my $digital_spread_percentage = $dsp_amount * $level_multiplier;
