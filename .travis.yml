@@ -16,7 +16,6 @@ before_install:
     - "cpanm Test::Perl::Critic"
     - "cpanm MooseX::Singleton"
     - "git clone https://60d764d753f8b0b231f5a4ee566d3eeaf5024cdc@github.com/regentmarkets/perl-Finance-Asset /tmp/perl-Finance-Asset"
-    - "cd /tmp/perl-Finance-Asset && perl Makefile.PL && make install"
+    - "(cd /tmp/perl-Finance-Asset && perl Makefile.PL && make install)"
 script:
-    - "cd /home/travis/build/regentmarkets/perl-Pricing-Engine-European-Digital-Slope"
     - "perl Makefile.PL && make test"
