@@ -9,7 +9,6 @@ before_install:
     - "cpanm Date::Utility"
     - "cpanm File::ShareDir"
     - "cpanm YAML::XS"
-    - "cpanm YAML::CacheLoader"
     - "cpanm Math::Function::Interpolator"
     - "cpanm Math::Business::BlackScholes::Binaries"
     - "cpanm Math::Business::BlackScholes::Binaries::Greeks::Vega"
