@@ -453,7 +453,7 @@ digital_spread_base:
     UPORDOWN: 40
     ONETOUCH: 40
     NOTOUCH: 40
-  random:
+  volidx:
     CALL: 3
     PUT: 3
     EXPIRYMISS: 3
@@ -473,12 +473,6 @@ digital_scaling_factor:
   R_50: 1
   RDBULL: 1
   R_100: 1
-  RDYIN: 1
   R_75: 1
   RDBEAR: 1
   R_25: 1
-  RDMARS: 1
-  RDMOON: 1
-  RDVENUS: 1
-  RDYANG: 1
-  RDSUN: 1
