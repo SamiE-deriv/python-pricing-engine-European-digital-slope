@@ -24,11 +24,11 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =head1 VERSION
 
-Version 1.08
+Version 1.10
 
 =cut
 
-our $VERSION = '1.09';
+our $VERSION = '1.10';
 
 =head1 SYNOPSIS
 
@@ -253,7 +253,7 @@ state $markup_config = {
         traded_market_markup     => 1,
         smile_uncertainty_markup => 1,
     },
-    random => {},
+    volidx => {},
 };
 
 =head2 BUILD
