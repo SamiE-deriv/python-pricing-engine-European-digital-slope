@@ -3,6 +3,14 @@
 #Level 1 represents the lowest level and is used for more liquid instruments, while Level 3 is the highest.
 #All synthetic instruments are assigned a value of 3.
 commission_level:
+  USAMZN: 3
+  USCT: 3
+  USFB: 3
+  DEBAYER: 3
+  DESIE: 3
+  DEVOWGEN: 3
+  AUMQG: 3
+  AUQAN: 3
   DFMGI: 5
   JCI: 4
   SASEIDX: 5
