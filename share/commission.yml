@@ -149,6 +149,19 @@ commission_level:
   OBX: 3
   OEX: 1
   OMXS30: 1
+  OTC_IXIC: 1
+  OTC_BSESENSEX30: 2
+  OTC_BIST100: 3
+  OTC_AEX: 1
+  OTC_AS51: 1
+  OTC_FTSE: 1
+  OTC_BFX: 1
+  OTC_DJI: 1
+  OTC_FCHI: 1
+  OTC_GDAXI: 1
+  OTC_HSI: 1
+  OTC_N225: 1 
+  OTC_SPC: 1
   PSI20: 2
   RDBEAR: 1
   RDBULL: 1
