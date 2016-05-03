@@ -30,6 +30,8 @@ Version 1.12
 
 our $VERSION = '1.12';
 
+
+
 =head1 SYNOPSIS
 
   use Pricing::Engine::EuropeanDigitalSlope;
