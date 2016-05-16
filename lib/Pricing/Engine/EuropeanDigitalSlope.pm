@@ -30,7 +30,6 @@ Version 1.14
 
 our $VERSION = '1.14';
 
-
 =head1 SYNOPSIS
 
   use Pricing::Engine::EuropeanDigitalSlope;
@@ -305,9 +304,9 @@ Final probability of the contract.
 =cut
 
 sub probability {
-    my $self = shift;
+    my $self              = shift;
     my $final_probability = $self->theo_probability + $self->risk_markup + $self->commission_markup;
-    return max(0,min(1,$final_probability));
+    return max(0, min(1, $final_probability));
 }
 
 =head2 bs_probability
@@ -334,7 +333,7 @@ sub theo_probability {
     my $self = shift;
 
     return 1 if $self->error;
-    return max(0,min(1,$self->_calculate_probability));
+    return max(0, min(1, $self->_calculate_probability));
 }
 
 =head2 risk_markup
@@ -377,7 +376,7 @@ sub risk_markup {
             my $spot_spread_base   = $spot_spread_size * $self->_underlying_config->{pip_size};
             my $bs_delta_formula   = _greek_formula_for('delta', $self->contract_type);
             my $bs_delta           = abs($bs_delta_formula->($self->_to_array(\%greek_params)));
-            my $spot_spread_markup = max(0,min($spot_spread_base * $bs_delta, 0.01));
+            my $spot_spread_markup = max(0, min($spot_spread_base * $bs_delta, 0.01));
             $risk_markup += $spot_spread_markup;
             $self->debug_information->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
         }
@@ -446,10 +445,16 @@ Commission markup imposed by this engine.
 
 =cut
 
+my $comm_file;
+
+BEGIN {
+    $comm_file = LoadFile(File::ShareDir::dist_file('Pricing-Engine-EuropeanDigitalSlope', 'commission.yml'));
+}
+
 sub commission_markup {
     my $self = shift;
 
-    return 0    if $self->error;
+    return 0 if $self->error;
 
     # 5% commission for middle eastern submarket and jakarta
     return 0.05 if ($self->_underlying_config->{submarket} eq 'middle_east' or $self->underlying_symbol eq 'JCI');
@@ -457,12 +462,11 @@ sub commission_markup {
     # 3% commission for forward starting contracts
     return 0.03 if $self->_is_forward_starting;
 
-    state $comm_file = LoadFile(File::ShareDir::dist_file('Pricing-Engine-EuropeanDigitalSlope', 'commission.yml'));
     my $commission_level = $comm_file->{commission_level}->{$self->underlying_symbol};
     my $dsp_amount = $comm_file->{digital_spread_base}->{$self->_underlying_config->{market}}->{$self->contract_type} // 0;
     $dsp_amount /= 100;
     # this is added so that we match the commission of tick trades
-    $dsp_amount *= 2/3 if $self->_timeindays * 86400 <= 20 and $self->_is_atm_contract;
+    $dsp_amount *= 2 / 3 if $self->_timeindays * 86400 <= 20 and $self->_is_atm_contract;
     # 1.4 is the hard-coded level multiplier
     my $level_multiplier          = 1.4**($commission_level - 1);
     my $digital_spread_percentage = $dsp_amount * $level_multiplier;
@@ -517,7 +521,7 @@ sub _build_timeindays {
     # Zero duration will cause pricing calculation error
     # Capping duration at 730 days
     my $epsilon = machine_epsilon();
-    $ind = min(730,max($epsilon, $ind));
+    $ind = min(730, max($epsilon, $ind));
 
     return $ind;
 }
