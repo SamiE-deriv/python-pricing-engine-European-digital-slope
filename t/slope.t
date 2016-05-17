@@ -426,6 +426,7 @@ subtest 'smile uncertainty markup' => sub {
 subtest 'end of day markup' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     foreach my $market (qw(forex commodities)) {
+        $pp->{_is_atm_contract} = 0;
         note("market: $market, $underlyings{$market}");
         $pp->{underlying_symbol} = $underlyings{$market};
         $pp->{date_expiry} = $now->plus_time_interval('4d');
@@ -445,8 +446,14 @@ subtest 'end of day markup' => sub {
         $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         $slope->risk_markup;
         ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup will be applied to intraday contract that starts after 21:00 GMT';
+        note ('forced to non atm contract');
+        $pp->{_is_atm_contract} = 1;
+        $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        $slope->risk_markup;
+        ok !exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup will not be applied to non atm contract';
     }
 
+    delete $pp->{_is_atm_contract};
     foreach my $market (qw(stocks indices)) {
         note("market: $market, $underlyings{$market}");
         $pp->{underlying_symbol} = $underlyings{$market};
