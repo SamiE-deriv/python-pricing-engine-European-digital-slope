@@ -28,7 +28,7 @@ Version 1.15
 
 =cut
 
-our $VERSION = '1.15';
+our $VERSION = '1.16';
 
 =head1 SYNOPSIS
 
@@ -304,9 +304,11 @@ Final probability of the contract.
 =cut
 
 sub probability {
-    my $self              = shift;
-    my $final_probability = $self->theo_probability + $self->risk_markup + $self->commission_markup;
-    return max(0, min(1, $final_probability));
+    my $self = shift;
+
+    my $probability = $self->theo_probability + $self->risk_markup;
+
+    return max(0, min(1, $probability));
 }
 
 =head2 bs_probability
