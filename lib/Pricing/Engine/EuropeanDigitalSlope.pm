@@ -63,10 +63,7 @@ our $VERSION = '1.16';
   To get the risk markups for the contract:
   my $risk_markup    = $pe->risk_markup;
 
-  To get the commission imposed by this model:
-  my $commission_markup = $pe->commission_markup;
-
-  Final probability (theo_probability + risk_markup + commission_markup)
+  Final probability (theo_probability + risk_markup)
   my $probability = $pe->probability;
 
 =head1 ATTRIBUTES
@@ -439,53 +436,6 @@ sub risk_markup {
     $self->debug_information->{risk_markup}{amount} = $risk_markup;
 
     return $risk_markup;
-}
-
-=head2 commission_markup
-
-Commission markup imposed by this engine.
-
-=cut
-
-my $comm_file;
-
-BEGIN {
-    $comm_file = LoadFile(File::ShareDir::dist_file('Pricing-Engine-EuropeanDigitalSlope', 'commission.yml'));
-}
-
-sub commission_markup {
-    my $self = shift;
-
-    return 0 if $self->error;
-
-    # 5% commission for middle eastern submarket and jakarta
-    return 0.05 if ($self->_underlying_config->{submarket} eq 'middle_east' or $self->underlying_symbol eq 'JCI');
-
-    # 3% commission for forward starting contracts
-    return 0.03 if $self->_is_forward_starting;
-
-    my $commission_level = $comm_file->{commission_level}->{$self->underlying_symbol};
-    my $dsp_amount = $comm_file->{digital_spread_base}->{$self->_underlying_config->{market}}->{$self->contract_type} // 0;
-    $dsp_amount /= 100;
-    # this is added so that we match the commission of tick trades
-    $dsp_amount *= 2 / 3 if $self->_timeindays * 86400 <= 20 and $self->_is_atm_contract;
-    # 1.4 is the hard-coded level multiplier
-    my $level_multiplier          = 1.4**($commission_level - 1);
-    my $digital_spread_percentage = $dsp_amount * $level_multiplier;
-    my $fixed_scaling             = $comm_file->{digital_scaling_factor}->{$self->underlying_symbol};
-    my $dsp_interp                = Math::Function::Interpolator->new(
-        points => {
-            0   => 1.5,
-            1   => 1.5,
-            10  => 1.2,
-            20  => 1,
-            365 => 1,
-        });
-    my $dsp_scaling           = $fixed_scaling || $dsp_interp->linear($self->_timeindays);
-    my $digital_spread_markup = $digital_spread_percentage * $dsp_scaling;
-    my $commission_markup     = $digital_spread_markup / 2;
-
-    return $commission_markup;
 }
 
 ## PRIVATE ##

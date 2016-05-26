@@ -269,7 +269,6 @@ subtest 'unsupported contract_type' => sub {
         ok $slope->error,             'has error';
         like $slope->error,           qr/Unsupported contract type/, 'correct error message';
         is $slope->risk_markup,       0,                             'risk_markup is zero';
-        is $slope->commission_markup, 0,                             'commission_markup is zero';
     }
     'doesn\'t die if contract type is unsupported';
 };
@@ -282,7 +281,6 @@ subtest 'unregconized priced_with' => sub {
         is $slope->theo_probability,       1,                            'probabilility is 1';
         is $slope->bs_probability,    1,                            'probabilility is 1';
         is $slope->risk_markup,       0,                            'risk_markup is zero';
-        is $slope->commission_markup, 0,                            'commission_markup is zero';
         ok $slope->error,             'has error';
         like $slope->error,           qr/Unrecognized priced_with/, 'correct error message';
     }
@@ -299,7 +297,6 @@ subtest 'barrier error' => sub {
         is $slope->theo_probability,       1, 'probabilility is 1';
         is $slope->bs_probability,    1, 'probabilility is 1';
         is $slope->risk_markup,       0, 'risk_markup is zero';
-        is $slope->commission_markup, 0, 'commission_markup is zero';
     }
     'doesn\'t die if strikes are undefined';
 
@@ -312,7 +309,6 @@ subtest 'barrier error' => sub {
         is $slope->theo_probability,       1, 'probabilility is 1';
         is $slope->bs_probability,    1, 'probabilility is 1';
         is $slope->risk_markup,       0, 'risk_markup is zero';
-        is $slope->commission_markup, 0, 'commission_markup is zero';
     }
     'doesn\'t die if strikes are undefined';
 };
@@ -327,7 +323,6 @@ subtest 'expiry before start' => sub {
         is $slope->theo_probability,       1, 'probabilility is 1';
         is $slope->bs_probability,    1, 'probabilility is 1';
         is $slope->risk_markup,       0, 'risk_markup is zero';
-        is $slope->commission_markup, 0, 'commission_markup is zero';
     };
 };
 
@@ -532,15 +527,6 @@ subtest 'butterfly markup' => sub {
     $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     $slope->risk_markup;
     ok !exists $slope->debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup will not be applied if it is not an overnight contract';
-};
-
-
-subtest 'commission markup' => sub {
-    my $pp = _get_params('CALL', 'numeraire');
-    lives_ok {
-        $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        ok $slope->commission_markup;
-    }
 };
 
 subtest 'zero duration' => sub {

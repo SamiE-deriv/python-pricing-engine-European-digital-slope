@@ -66,9 +66,6 @@ Usage:
   To get the risk markups for the contract:
   my $risk_markup    = $pe->risk_markup;
 
-  To get the commission imposed by this model:
-  my $commission_markup = $pe->commission_markup;
-
   Final probability
   my $probability = $pe->probability;
 
