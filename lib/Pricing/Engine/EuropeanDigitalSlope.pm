@@ -154,7 +154,7 @@ my $market_rr_bf = $market_data->{get_market_rr_bf}->(7);
 
 - get_volatility: Expects a hash refernce of volatility argument as input. Optional input: surface data. Returns a volatility number.
 
-my $vol = $market_data->{get_volatility}->({delta => 50, days =>7});
+my $vol = $market_data->{get_volatility}->({delta => 50, from => $from, to => $to});
 my $surface_data = {
     7 => {
         smile => {
@@ -173,7 +173,7 @@ my $surface_data = {
 };
 
 # To get volatility with a modified surface.
-$vol = $market_data->{get_volatility}->({delta => 50, expiry_date => $date_obj}, $surface_data);
+$vol = $market_data->{get_volatility}->({delta => 50, from => $from, to => $to}, $surface_data);
 
 - get_atm_volatility: Expects a hash reference as input. Returns a volatility number.
 
@@ -690,8 +690,10 @@ sub _get_first_tenor_on_surface {
 sub _get_vol_expiry {
     my $self = shift;
 
-    return {expiry_date => $self->date_expiry} if $self->_underlying_config->{market} eq 'forex';
-    return {days => $self->_timeindays};
+    return {
+        from => $self->date_start,
+        to   => $self->date_expiry
+    };
 }
 
 =head1 AUTHOR
