@@ -188,10 +188,6 @@ A hash reference of subroutine references to fetch market convention.
 
 my $rollover_time = $market_data->{get_rollover_time}->(Date::Utility->new);
 
-- calculate_expiry: Expects a start and end Date::Utility object. Returns a number.
-
-my $expiry = $market_data->{calculate_expiry}->(Date::Utility->new, Date::Utility->new->plus_time_interval('1d'));
-
 =cut
 
 # required for now since market data and convention are still
@@ -460,15 +456,7 @@ has _timeindays => (
 sub _build_timeindays {
     my $self = shift;
 
-    # The FX convention for duration and volatility is to use integer number of days.
-    # We are following this convention partially, < 1 day uses decimal number of days, > 1 uses integer number of days.
-    # We will fix this as we refacter the volsurface.
-    my $ind;
-    if ($self->_underlying_config->{market} eq 'forex') {
-        $ind = $self->market_convention->{calculate_expiry}->($self->date_start, $self->date_expiry);
-    }
-
-    $ind ||= ($self->date_expiry->epoch - $self->date_start->epoch) / 86400;
+    my $ind = ($self->date_expiry->epoch - $self->date_start->epoch) / 86400;
     # Preventing duration to go to zero when date_pricing == date_expiry
     # Zero duration will cause pricing calculation error
     # Capping duration at 730 days
