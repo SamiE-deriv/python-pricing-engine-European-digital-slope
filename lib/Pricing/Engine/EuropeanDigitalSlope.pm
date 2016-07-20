@@ -399,7 +399,7 @@ sub risk_markup {
 
         # This is added for the high butterfly condition where the overnight butterfly is higher than threshold (0.01),
         # We add the difference between then original probability and adjusted butterfly probability as markup.
-        if ($markup_config->{'butterfly_markup'} and $self->_timeindays == $self->market_data->{get_overnight_tenor}->()) {
+        if ($markup_config->{'butterfly_markup'} and $self->_timeindays <= $self->market_data->{get_overnight_tenor}->()) {
             my $butterfly_cutoff = 0.01;
             my $original_surface = $self->market_data->{get_volsurface_data}->($self->underlying_symbol);
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
