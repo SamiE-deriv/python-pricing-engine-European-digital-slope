@@ -24,11 +24,11 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =head1 VERSION
 
-Version 1.15
+Version 1.18
 
 =cut
 
-our $VERSION = '1.17';
+our $VERSION = '1.18';
 
 =head1 SYNOPSIS
 
@@ -154,7 +154,7 @@ my $market_rr_bf = $market_data->{get_market_rr_bf}->(7);
 
 - get_volatility: Expects a hash refernce of volatility argument as input. Optional input: surface data. Returns a volatility number.
 
-my $vol = $market_data->{get_volatility}->({delta => 50, days =>7});
+my $vol = $market_data->{get_volatility}->({delta => 50, from => $from, to => $to});
 my $surface_data = {
     7 => {
         smile => {
@@ -173,7 +173,7 @@ my $surface_data = {
 };
 
 # To get volatility with a modified surface.
-$vol = $market_data->{get_volatility}->({delta => 50, expiry_date => $date_obj}, $surface_data);
+$vol = $market_data->{get_volatility}->({delta => 50, from => $from, to => $to}, $surface_data);
 
 - get_atm_volatility: Expects a hash reference as input. Returns a volatility number.
 
@@ -187,10 +187,6 @@ A hash reference of subroutine references to fetch market convention.
 - get_rollover_time: Rollover time is of which a volsurface is expected to rollover to the next trading day. Expects a date as input. Returns Date::Utility object of the rollover time.
 
 my $rollover_time = $market_data->{get_rollover_time}->(Date::Utility->new);
-
-- calculate_expiry: Expects a start and end Date::Utility object. Returns a number.
-
-my $expiry = $market_data->{calculate_expiry}->(Date::Utility->new, Date::Utility->new->plus_time_interval('1d'));
 
 =cut
 
@@ -403,7 +399,7 @@ sub risk_markup {
 
         # This is added for the high butterfly condition where the overnight butterfly is higher than threshold (0.01),
         # We add the difference between then original probability and adjusted butterfly probability as markup.
-        if ($markup_config->{'butterfly_markup'} and $self->_timeindays == $self->market_data->{get_overnight_tenor}->()) {
+        if ($markup_config->{'butterfly_markup'} and $self->_timeindays <= $self->market_data->{get_overnight_tenor}->()) {
             my $butterfly_cutoff = 0.01;
             my $original_surface = $self->market_data->{get_volsurface_data}->($self->underlying_symbol);
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
@@ -460,15 +456,7 @@ has _timeindays => (
 sub _build_timeindays {
     my $self = shift;
 
-    # The FX convention for duration and volatility is to use integer number of days.
-    # We are following this convention partially, < 1 day uses decimal number of days, > 1 uses integer number of days.
-    # We will fix this as we refacter the volsurface.
-    my $ind;
-    if ($self->_underlying_config->{market} eq 'forex') {
-        $ind = $self->market_convention->{calculate_expiry}->($self->date_start, $self->date_expiry);
-    }
-
-    $ind ||= ($self->date_expiry->epoch - $self->date_start->epoch) / 86400;
+    my $ind = ($self->date_expiry->epoch - $self->date_start->epoch) / 86400;
     # Preventing duration to go to zero when date_pricing == date_expiry
     # Zero duration will cause pricing calculation error
     # Capping duration at 730 days
@@ -702,8 +690,10 @@ sub _get_first_tenor_on_surface {
 sub _get_vol_expiry {
     my $self = shift;
 
-    return {expiry_date => $self->date_expiry} if $self->_underlying_config->{market} eq 'forex';
-    return {days => $self->_timeindays};
+    return {
+        from => $self->date_start,
+        to   => $self->date_expiry
+    };
 }
 
 =head1 AUTHOR
