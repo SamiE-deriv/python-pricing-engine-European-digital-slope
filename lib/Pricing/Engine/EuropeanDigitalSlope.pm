@@ -24,11 +24,11 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =head1 VERSION
 
-Version 1.18
+Version 1.19
 
 =cut
 
-our $VERSION = '1.18';
+our $VERSION = '1.19';
 
 =head1 SYNOPSIS
 
