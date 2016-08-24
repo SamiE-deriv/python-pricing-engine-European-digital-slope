@@ -24,11 +24,11 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =head1 VERSION
 
-Version 1.18
+Version 1.19
 
 =cut
 
-our $VERSION = '1.18';
+our $VERSION = '1.19';
 
 =head1 SYNOPSIS
 
@@ -57,13 +57,10 @@ our $VERSION = '1.18';
   To get the blackscholes probability for the contract:
   my $bs_probability = $pe->bs_probability;
 
-  To get the theoretical probability for the contract:
-  my $theo_probability    = $pe->theo_probability;
-
   To get the risk markups for the contract:
   my $risk_markup    = $pe->risk_markup;
 
-  Final probability (theo_probability + risk_markup)
+  Final probability (base_probability + risk_markup)
   my $probability = $pe->probability;
 
 =head1 ATTRIBUTES
@@ -299,7 +296,7 @@ Final probability of the contract.
 sub probability {
     my $self = shift;
 
-    my $probability = $self->theo_probability + $self->risk_markup;
+    my $probability = $self->base_probability + $self->risk_markup;
 
     return max(0, min(1, $probability));
 }
@@ -315,16 +312,16 @@ sub bs_probability {
 
     return 1 if $self->error;
     my $bs_formula = _bs_formula_for($self->contract_type);
-    return $bs_formula->($self->_to_array($self->_pricing_args));
+    return max(0, $bs_formula->($self->_to_array($self->_pricing_args)));
 }
 
-=head2 theo_probability
+=head2 base_probability
 
-Theoretical probability.
+base probability.
 
 =cut
 
-sub theo_probability {
+sub base_probability {
     my $self = shift;
 
     return 1 if $self->error;
@@ -419,7 +416,7 @@ sub risk_markup {
                 };
                 my $vol_after_butterfly_adjustment = $self->market_data->{get_volatility}->($vol_args, $cloned_surface_data);
                 my $butterfly_adjusted_prob = $self->_calculate_probability({vol => $vol_after_butterfly_adjustment});
-                my $butterfly_markup = min(0.1, abs($self->theo_probability - $butterfly_adjusted_prob));
+                my $butterfly_markup = min(0.1, abs($self->base_probability - $butterfly_adjusted_prob));
                 $risk_markup += $butterfly_markup;
                 $self->debug_information->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
             }
@@ -548,31 +545,31 @@ sub _calculate_probability {
         my (%debug_information, $calc_parameters);
         if ($priced_with eq 'numeraire') {
             ($probability, $calc_parameters) = $self->_calculate($contract_type, $params);
-            $debug_information{theo_probability}{amount}     = $probability;
-            $debug_information{theo_probability}{parameters} = $calc_parameters;
+            $debug_information{base_probability}{amount}     = $probability;
+            $debug_information{base_probability}{parameters} = $calc_parameters;
         } elsif ($priced_with eq 'quanto') {
             $params->{mu} = $self->r_rate - $self->q_rate;
             ($probability, $calc_parameters) = $self->_calculate($contract_type, $params);
-            $debug_information{theo_probability}{amount}     = $probability;
-            $debug_information{theo_probability}{parameters} = $calc_parameters;
+            $debug_information{base_probability}{amount}     = $probability;
+            $debug_information{base_probability}{parameters} = $calc_parameters;
         } elsif ($priced_with eq 'base') {
             my %cloned_params = %$params;
             $cloned_params{mu}            = $self->r_rate - $self->q_rate;
             $cloned_params{discount_rate} = $self->r_rate;
             my $numeraire_prob;
             ($numeraire_prob, $calc_parameters) = $self->_calculate($contract_type, \%cloned_params);
-            $debug_information{theo_probability}{parameters}{numeraire_probability}{amount}     = $numeraire_prob;
-            $debug_information{theo_probability}{parameters}{numeraire_probability}{parameters} = $calc_parameters;
+            $debug_information{base_probability}{parameters}{numeraire_probability}{amount}     = $numeraire_prob;
+            $debug_information{base_probability}{parameters}{numeraire_probability}{parameters} = $calc_parameters;
             my $vanilla_formula          = _bs_formula_for('vanilla_' . $contract_type);
             my $base_vanilla_probability = $vanilla_formula->($self->_to_array($params));
-            $debug_information{theo_probability}{parameters}{base_vanilla_probability}{amount}     = $base_vanilla_probability;
-            $debug_information{theo_probability}{parameters}{base_vanilla_probability}{parameters} = $params;
+            $debug_information{base_probability}{parameters}{base_vanilla_probability}{amount}     = $base_vanilla_probability;
+            $debug_information{base_probability}{parameters}{base_vanilla_probability}{parameters} = $params;
             my $which_way = $contract_type eq 'CALL' ? 1 : -1;
             my $strike = $params->{strikes}->[0];
-            $debug_information{theo_probability}{parameters}{spot}{amount}   = $self->spot;
-            $debug_information{theo_probability}{parameters}{strike}{amount} = $strike;
+            $debug_information{base_probability}{parameters}{spot}{amount}   = $self->spot;
+            $debug_information{base_probability}{parameters}{strike}{amount} = $strike;
             $probability = ($numeraire_prob * $strike + $base_vanilla_probability * $which_way) / $self->spot;
-            $debug_information{theo_probability}{amount} = $probability;
+            $debug_information{base_probability}{amount} = $probability;
         } else {
             $self->error('Unrecognized priced_with[' . $priced_with . ']');
             $probability = 1;
