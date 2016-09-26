@@ -1,5 +1,7 @@
 sudo: false
 language: perl
+matrix:
+    fast_finish: true
 services:
     - redis-server
 perl:
