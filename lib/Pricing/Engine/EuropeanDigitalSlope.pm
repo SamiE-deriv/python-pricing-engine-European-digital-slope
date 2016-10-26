@@ -287,20 +287,6 @@ sub required_args {
     ];
 }
 
-=head2 probability
-
-Final probability of the contract.
-
-=cut
-
-sub probability {
-    my $self = shift;
-
-    my $probability = $self->base_probability + $self->risk_markup;
-
-    return max(0, min(1, $probability));
-}
-
 =head2 bs_probability
 
 BlackScholes probability.

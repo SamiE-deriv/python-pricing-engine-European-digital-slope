@@ -61,12 +61,9 @@ Usage:
   my $bs_probability = $pe->bs_probability;
 
   To get the theoretical probability for the contract:
-  my $theo_probability    = $pe->theo_probability;
+  my $base_probability    = $pe->base_probability;
 
   To get the risk markups for the contract:
   my $risk_markup    = $pe->risk_markup;
-
-  Final probability
-  my $probability = $pe->probability;
 
 ~~~~
