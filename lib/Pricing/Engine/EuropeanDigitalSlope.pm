@@ -301,13 +301,13 @@ sub bs_probability {
     return max(0, $bs_formula->($self->_to_array($self->_pricing_args)));
 }
 
-=head2 theo_probability
+=head2 base_probability
 
 base theoretical probability.
 
 =cut
 
-sub theo_probability {
+sub base_probability {
     my $self = shift;
 
     return 1 if $self->error;
