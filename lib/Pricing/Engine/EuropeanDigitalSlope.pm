@@ -1,8 +1,6 @@
 package Pricing::Engine::EuropeanDigitalSlope;
 
 use 5.010;
-use Moose;
-use Moose::Util::TypeConstraints;
 
 use File::ShareDir ();
 use Storable qw(dclone);
@@ -15,20 +13,17 @@ use Math::Business::BlackScholes::Binaries::Greeks::Vega;
 use Math::Business::BlackScholes::Binaries::Greeks::Delta;
 use Machine::Epsilon;
 
-subtype 'Pricing::Engine::EuropeanDigitalSlope::DateObject', as 'Date::Utility';
-coerce 'Pricing::Engine::EuropeanDigitalSlope::DateObject', from 'Str', via { Date::Utility->new($_) };
-
 =head1 NAME
 
 Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital contracts.
 
 =head1 VERSION
 
-Version 1.20
+Version 1.19
 
 =cut
 
-our $VERSION = '1.20';
+our $VERSION = '1.19';
 
 =head1 SYNOPSIS
 
@@ -54,14 +49,8 @@ our $VERSION = '1.20';
       market_convention => $market_convention, # hash reference of subroutine reference to fetch market convention information
   );
 
-  To get the blackscholes probability for the contract:
-  my $bs_probability = $pe->bs_probability;
-
-  To get the risk markups for the contract:
-  my $risk_markup    = $pe->risk_markup;
-
   Final probability (base_probability + risk_markup)
-  my $probability = $pe->probability;
+  my $ask_probability = $pe->ask_probability;
 
 =head1 ATTRIBUTES
 
@@ -107,11 +96,6 @@ Is this a base, numeraire or quanto contract.
 
 =cut
 
-has [qw(contract_type spot strikes discount_rate mu vol payouttime_code q_rate r_rate priced_with underlying_symbol)] => (
-    is       => 'ro',
-    required => 1,
-);
-
 =head2 date_start
 
 The start time of the contract. Is a Date::Utility object.
@@ -125,13 +109,6 @@ The time of which the contract is priced. Is a Date::Utility object.
 The expiration time of the contract. Is a Date::Utility object.
 
 =cut
-
-has [qw(date_start date_pricing date_expiry)] => (
-    is       => 'ro',
-    isa      => 'Pricing::Engine::EuropeanDigitalSlope::DateObject',
-    required => 1,
-    coerce   => 1,
-);
 
 =head2 market_data
 
@@ -189,10 +166,6 @@ my $rollover_time = $market_data->{get_rollover_time}->(Date::Utility->new);
 
 # required for now since market data and convention are still
 # very much intact to BOM code
-has [qw(market_data market_convention)] => (
-    is       => 'ro',
-    required => 1,
-);
 
 =head2 debug_information
 
@@ -200,22 +173,11 @@ Logging output.
 
 =cut
 
-has debug_information => (
-    is      => 'rw',
-    default => sub { {} },
-);
-
 =head2 error
 
 Error thrown while calculating probability or markups.
 
 =cut
-
-has error => (
-    is       => 'rw',
-    init_arg => undef,
-    default  => '',
-);
 
 # Contract types supported by this engine.
 state $supported_types = {
@@ -246,35 +208,6 @@ state $markup_config = {
     volidx => {},
 };
 
-=head2 BUILD
-
-Sanity check after object creation.
-
-=cut
-
-sub BUILD {
-    my $self = shift;
-
-    my $contract_type = $self->contract_type;
-    unless ($supported_types->{$contract_type}) {
-        $self->error('Unsupported contract type [' . $contract_type . '] for ' . __PACKAGE__);
-    }
-
-    my @strikes = @{$self->strikes};
-    my $err     = 'Barrier error for contract type [' . $contract_type . ']';
-    if ($self->_two_barriers) {
-        $self->error($err) if @strikes != 2;
-    } else {
-        $self->error($err) if @strikes != 1;
-    }
-
-    if ($self->date_expiry->is_before($self->date_start)) {
-        $self->error('Date expiry is before date start');
-    }
-
-    return;
-}
-
 =head2 required_args
 
 Required arguments for this engine to work.
@@ -287,31 +220,168 @@ sub required_args {
     ];
 }
 
-=head2 bs_probability
+=head2 ask_probability
 
-BlackScholes probability.
+Final probability of the contract.
 
 =cut
 
-sub bs_probability {
-    my $self = shift;
+sub ask_probability {
+    my $args = shift;
+    my $debug_info = shift;
 
-    return 1 if $self->error;
-    my $bs_formula = _bs_formula_for($self->contract_type);
-    return max(0, $bs_formula->($self->_to_array($self->_pricing_args)));
+    my $contract_type = $args->{contract_type};
+    unless ($supported_types->{$contract_type}) {
+        $debug_info->{error} = 'Unsupported contract type [' . $contract_type . '] for ' . __PACKAGE__;
+    }
+
+    my @strikes = @{$args->{strikes}};
+    my $err     = 'Barrier error for contract type [' . $contract_type . ']';
+    if (_two_barriers($args)) {
+        $debug_info->{error} = $err if @strikes != 2;
+    } else {
+        $debug_info->{error} = $err if @strikes != 1;
+    }
+
+    if ($args->{date_expiry}->is_before($args->{date_start})) {
+        $debug_info->{error} = 'Date expiry is before date start';
+    }
+
+    my $probability = _base_probability($args, $debug_info) + _risk_markup($args, $debug_info);
+
+    return max(0, min(1, $probability));
 }
+
+# =head2 bs_probability
+
+# BlackScholes probability.
+
+# =cut
+
+# sub bs_probability {
+#     my $self = shift;
+
+#     return 1 if $self->error;
+#     my $bs_formula = _bs_formula_for($self->contract_type);
+#     return max(0, $bs_formula->($self->_to_array($self->_pricing_args)));
+# }
 
 =head2 base_probability
 
-base theoretical probability.
+base probability.
 
 =cut
 
-sub base_probability {
-    my $self = shift;
+sub _base_probability {
+    my $args = shift;
+    my $debug_info = shift;
 
-    return 1 if $self->error;
-    return max(0, min(1, $self->_calculate_probability));
+    return 1 if $debug_info->{error};
+    return max(0, min(1, _calculate_probability($args, $debug_info)));
+}
+
+=head2 risk_markup
+
+Risk markup imposed by this engine.
+
+=cut
+
+sub _risk_markup {
+    my $args = shift;
+    my $debug_info = shift;
+
+    return 0 if $self->error;
+
+    my $market        = $self->_underlying_config->{market};
+    my $markup_config = $markup_config->{$market};
+    my $is_intraday   = $self->_is_intraday;
+
+    my $risk_markup = 0;
+    if ($markup_config->{'traded_market_markup'}) {
+        # risk_markup is zero for forward_starting contracts due to complaints from Australian affiliates.
+        return $risk_markup if ($self->_is_forward_starting);
+
+        my %greek_params = %{$self->_pricing_args};
+        $greek_params{vol} = $self->market_data->{get_atm_volatility}->($self->_get_vol_expiry);
+        # vol_spread_markup
+        my $spread_type = $self->_is_atm_contract ? 'atm' : 'max';
+        my $vol_spread = $self->market_data->{get_vol_spread}->({
+            sought_point => $spread_type,
+            day          => $self->_timeindays
+        });
+        my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
+        my $bs_vega           = abs($bs_vega_formula->($self->_to_array(\%greek_params)));
+        my $vol_spread_markup = min($vol_spread * $bs_vega, 0.7);
+        $risk_markup += $vol_spread_markup;
+        $self->debug_information->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
+
+        # spot_spread_markup
+        if (not $is_intraday) {
+            my $spot_spread_size   = $self->_underlying_config->{spot_spread_size} // 50;
+            my $spot_spread_base   = $spot_spread_size * $self->_underlying_config->{pip_size};
+            my $bs_delta_formula   = _greek_formula_for('delta', $self->contract_type);
+            my $bs_delta           = abs($bs_delta_formula->($self->_to_array(\%greek_params)));
+            my $spot_spread_markup = max(0, min($spot_spread_base * $bs_delta, 0.01));
+            $risk_markup += $spot_spread_markup;
+            $self->debug_information->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
+        }
+
+        # Generally for indices and stocks the minimum available tenor for smile is 30 days.
+        # We use this to price short term contracts, so adding a 5% markup for the volatility uncertainty.
+        if ($markup_config->{smile_uncertainty_markup} and $self->_timeindays < 7 and not $self->_is_atm_contract) {
+            my $smile_uncertainty_markup = 0.05;
+            $risk_markup += $smile_uncertainty_markup;
+            $self->debug_information->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
+        }
+
+        # end of day market risk markup
+        # This is added for uncertainty in volatilities during rollover period.
+        # The rollover time for volsurface is set at NY 1700. However, we are not sure when the actual rollover
+        # will happen. Hence we add a 5% markup to the price. This markup applies to forex and commodities only.
+        if ($markup_config->{'end_of_day_markup'} and not $self->_is_atm_contract and $self->_timeindays <= 3) {
+            my $ny_1600 = $self->market_convention->{get_rollover_time}->($self->date_start)->minus_time_interval('1h');
+            if ($ny_1600->is_before($self->date_start) or ($is_intraday and $ny_1600->is_before($self->date_expiry))) {
+                my $eod_market_risk_markup = 0.05;    # flat 5%
+                $risk_markup += $eod_market_risk_markup;
+                $self->debug_information->{risk_markup}{parameters}{end_of_day_markup} = $eod_market_risk_markup;
+            }
+        }
+
+        # This is added for the high butterfly condition where the overnight butterfly is higher than threshold (0.01),
+        # We add the difference between then original probability and adjusted butterfly probability as markup.
+        if ($markup_config->{'butterfly_markup'} and $self->_timeindays <= $self->market_data->{get_overnight_tenor}->()) {
+            my $butterfly_cutoff = 0.01;
+            my $original_surface = $self->market_data->{get_volsurface_data}->($self->underlying_symbol);
+            my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
+            my $market_rr_bf     = $self->market_data->{get_market_rr_bf}->($first_term);
+            if ($first_term == $self->market_data->{get_overnight_tenor}->() and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
+                my $original_bf = $market_rr_bf->{BF_25};
+                my $original_rr = $market_rr_bf->{RR_25};
+                my ($atm, $c25, $c75) = map { $original_surface->{$first_term}{smile}{$_} } qw(50 25 75);
+                my $c25_mod             = $butterfly_cutoff + $atm + 0.5 * $original_rr;
+                my $c75_mod             = $c25 - $original_rr;
+                my $cloned_surface_data = dclone($original_surface);
+                $cloned_surface_data->{$first_term}{smile}{25} = $c25_mod;
+                $cloned_surface_data->{$first_term}{smile}{75} = $c75_mod;
+                my $vol_args = {
+                    strike => $self->_two_barriers ? $self->spot : $self->strikes->[0],
+                    %{$self->_get_vol_expiry},
+                };
+                my $vol_after_butterfly_adjustment = $self->market_data->{get_volatility}->($vol_args, $cloned_surface_data);
+                my $butterfly_adjusted_prob = $self->_calculate_probability({vol => $vol_after_butterfly_adjustment});
+                my $butterfly_markup = min(0.1, abs($self->base_probability - $butterfly_adjusted_prob));
+                $risk_markup += $butterfly_markup;
+                $self->debug_information->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
+            }
+        }
+
+        # risk_markup divided equally on both sides.
+        $risk_markup /= 2;
+    }
+
+    $self->debug_information->{risk_markup}{amount} = $risk_markup;
+
+    return $risk_markup;
 }
 
 ## PRIVATE ##
@@ -370,15 +440,9 @@ sub _build_is_forward_starting {
     return ($self->date_start->epoch - $self->date_pricing->epoch > 5) ? 1 : 0;
 }
 
-has _two_barriers => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_two_barriers',
-);
-
-sub _build_two_barriers {
-    my $self = shift;
-    return (grep { $self->contract_type eq $_ } qw(EXPIRYMISS EXPIRYRANGE)) ? 1 : 0;
+sub _two_barriers {
+    my $args = shift;
+    return (grep { $args->{contract_type} eq $_ } qw(EXPIRYMISS EXPIRYRANGE)) ? 1 : 0;
 }
 
 has _is_intraday => (
@@ -588,6 +652,4 @@ You can find documentation for this module with the perldoc command.
 
 =cut
 
-no Moose;
-__PACKAGE__->meta->make_immutable;
 1;
