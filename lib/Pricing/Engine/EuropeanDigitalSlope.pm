@@ -290,16 +290,16 @@ sub _risk_markup {
     my $args = shift;
     my $debug_info = shift;
 
-    return 0 if $self->error;
+    return 0 if $debug_info->{error};
 
-    my $market        = $self->_underlying_config->{market};
+    my $market        = $args->{_underlying_config}->{market};
     my $markup_config = $markup_config->{$market};
-    my $is_intraday   = $self->_is_intraday;
+    my $is_intraday   = _is_intraday($args);
 
     my $risk_markup = 0;
     if ($markup_config->{'traded_market_markup'}) {
         # risk_markup is zero for forward_starting contracts due to complaints from Australian affiliates.
-        return $risk_markup if ($self->_is_forward_starting);
+        return $risk_markup if (_is_forward_starting($args));
 
         my %greek_params = %{$self->_pricing_args};
         $greek_params{vol} = $self->market_data->{get_atm_volatility}->($self->_get_vol_expiry);
@@ -386,27 +386,15 @@ sub _risk_markup {
 
 ## PRIVATE ##
 
-has _underlying_config => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_underlying_config',
-);
-
-sub _build_underlying_config {
+sub _underlying_config {
     my $self = shift;
-    return Finance::Asset->instance->get_parameters_for($self->underlying_symbol);
+    return Finance::Asset->instance->get_parameters_for($self->{underlying_symbol});
 }
 
-has _timeindays => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_timeindays',
-);
+sub _timeindays {
+    my $args = shift;
 
-sub _build_timeindays {
-    my $self = shift;
-
-    my $ind = ($self->date_expiry->epoch - $self->date_start->epoch) / 86400;
+    my $ind = ($args->{date_expiry}->epoch - $args->{date_start}->epoch) / 86400;
     # Preventing duration to go to zero when date_pricing == date_expiry
     # Zero duration will cause pricing calculation error
     # Capping duration at 730 days
@@ -416,28 +404,16 @@ sub _build_timeindays {
     return $ind;
 }
 
-has _timeinyears => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_timeinyears',
-);
-
-sub _build_timeinyears {
-    my $self = shift;
-    return $self->_timeindays / 365;
+sub _timeinyears {
+    my $args = shift;
+    return $args->{_timeindays} / 365;
 }
 
-has _is_forward_starting => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_is_forward_starting',
-);
-
-sub _build_is_forward_starting {
-    my $self = shift;
+sub _is_forward_starting {
+    my $args = shift;
     # 5 seconds is used as the threshold.
     # if pricing takes more than that, we are in trouble.
-    return ($self->date_start->epoch - $self->date_pricing->epoch > 5) ? 1 : 0;
+    return ($args->{date_start}->epoch - $args->{date_pricing}->epoch > 5) ? 1 : 0;
 }
 
 sub _two_barriers {
@@ -445,13 +421,7 @@ sub _two_barriers {
     return (grep { $args->{contract_type} eq $_ } qw(EXPIRYMISS EXPIRYRANGE)) ? 1 : 0;
 }
 
-has _is_intraday => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_is_intraday',
-);
-
-sub _build_is_intraday {
+sub _is_intraday {
     my $self = shift;
     return ($self->_timeindays > 1) ? 0 : 1;
 }
@@ -577,7 +547,7 @@ sub _calculate {
             q_rate => $self->q_rate,
             r_rate => $self->r_rate,
             %{$self->_get_vol_expiry}};
-        my $pip_size = $self->_underlying_config->{pip_size};
+        my $pip_size = _underlying_config($args)->{pip_size};
         # Move by pip size either way.
         $vol_args->{strike} = $strike - $pip_size;
         my $down_vol = $self->market_data->{get_volatility}->($vol_args);
