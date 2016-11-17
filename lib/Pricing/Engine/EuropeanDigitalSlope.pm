@@ -280,6 +280,12 @@ sub _base_probability {
     return max(0, min(1, _calculate_probability($args, $debug_info)));
 }
 
+sub _get_vol_surface {
+    my $args = shift;
+
+    return Quant::Framework::Delta->new({})
+}
+
 =head2 risk_markup
 
 Risk markup imposed by this engine.
@@ -301,14 +307,20 @@ sub _risk_markup {
         # risk_markup is zero for forward_starting contracts due to complaints from Australian affiliates.
         return $risk_markup if (_is_forward_starting($args));
 
-        my %greek_params = %{$self->_pricing_args};
-        $greek_params{vol} = $self->market_data->{get_atm_volatility}->($self->_get_vol_expiry);
+        my %greek_params = %{_pricing_args($args)};
+
+        my $volsurface = _get_vol_surface($args); 
+        my $vol_args = _get_vol_expiry($args);
+        $vol_args->{delta} = 50;
+        $greek_params{vol} = $volsurface->get_volatility($vol_args);
+
         # vol_spread_markup
-        my $spread_type = $self->_is_atm_contract ? 'atm' : 'max';
-        my $vol_spread = $self->market_data->{get_vol_spread}->({
+        my $spread_type = _is_atm_contract($args) ? 'atm' : 'max';
+        my $vol_spread = $volsurface->get_spread({
             sought_point => $spread_type,
             day          => $self->_timeindays
         });
+
         my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
         my $bs_vega           = abs($bs_vega_formula->($self->_to_array(\%greek_params)));
         my $vol_spread_markup = min($vol_spread * $bs_vega, 0.7);
@@ -426,21 +438,14 @@ sub _is_intraday {
     return ($self->_timeindays > 1) ? 0 : 1;
 }
 
-has _is_atm_contract => (
-    is      => 'ro',
-    lazy    => 1,
-    builder => '_build_is_atm_contract',
-);
-
-sub _build_is_atm_contract {
-    my $self = shift;
-    return ($self->_two_barriers or $self->spot != $self->strikes->[0]) ? 0 : 1;
+sub _is_atm_contract {
+    my $args = shift;
+    return ($args->{_two_barriers} or $args->{spot} != $args->{strikes}->[0]) ? 0 : 1;
 }
 
-has _formula_args => (
-    is      => 'ro',
-    default => sub { [qw(spot strikes _timeinyears discount_rate mu vol payouttime_code)] },
-);
+sub _formula_args {
+    return [qw(spot strikes _timeinyears discount_rate mu vol payouttime_code)];
+}
 
 sub _calculate_probability {
     my ($self, $modified) = @_;
@@ -582,8 +587,8 @@ sub _greek_formula_for {
 }
 
 sub _pricing_args {
-    my $self = shift;
-    my %args = map { $_ => $self->$_ } @{$self->_formula_args};
+    my $args = shift;
+    my %args = map { $_ => $args->{$_} } @{_formula_args};
     return \%args;
 }
 
@@ -602,11 +607,11 @@ sub _get_first_tenor_on_surface {
 }
 
 sub _get_vol_expiry {
-    my $self = shift;
+    my $args = shift;
 
     return {
-        from => $self->date_start,
-        to   => $self->date_expiry
+        from => $args->{date_start},
+        to   => $args->{date_expiry}
     };
 }
 
