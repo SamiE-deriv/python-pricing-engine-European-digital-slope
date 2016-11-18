@@ -376,8 +376,8 @@ sub _risk_markup {
                     %{_get_vol_expiry($args)},
                 };
                 my $vol_after_butterfly_adjustment = _get_volatility($args, $vol_args, $cloned_surface_data);
-                my $butterfly_adjusted_prob = _calculate_probability($args, {vol => $vol_after_butterfly_adjustment});
-                my $butterfly_markup = min(0.1, abs(_base_probability($args) - $butterfly_adjusted_prob));
+                my $butterfly_adjusted_prob = _calculate_probability($args, {vol => $vol_after_butterfly_adjustment}, $debug_info);
+                my $butterfly_markup = min(0.1, abs(_base_probability($args, $debug_info) - $butterfly_adjusted_prob));
                 $risk_markup += $butterfly_markup;
                 $debug_info->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
             }
@@ -450,11 +450,11 @@ sub _calculate_probability {
 
     my $probability;
     if ($contract_type eq 'EXPIRYMISS') {
-        $probability = _two_barrier_probability($args, $modified);
+        $probability = _two_barrier_probability($args, $modified, $debug_info);
     } elsif ($contract_type eq 'EXPIRYRANGE') {
         my $discounted_probability = exp(-$args->{discount_rate} * _timeinyears($args));
         $debug_info->{discounted_probability} = $discounted_probability;
-        $probability = $discounted_probability - _two_barrier_probability($args, $modified);
+        $probability = $discounted_probability - _two_barrier_probability($args, $modified, $debug_info);
     } else {
         my $priced_with = $args->{priced_with};
         my $params      = _pricing_args($args);
@@ -500,7 +500,7 @@ sub _calculate_probability {
 }
 
 sub _two_barrier_probability {
-    my ($args, $modified) = @_;
+    my ($args, $modified, $debug_info) = @_;
 
     my ($low_strike, $high_strike) = sort { $a <=> $b } @{$args->{strikes}};
 
@@ -512,7 +512,7 @@ sub _two_barrier_probability {
         strikes       => [$high_strike],
         vol           => $high_vol,
         %$modified
-    });
+    }, $debug_info);
 
     $vol_args->{strike} = $low_strike;
     my $low_vol  = _get_volatility($args, $vol_args);
@@ -521,7 +521,7 @@ sub _two_barrier_probability {
         strikes       => [$low_strike],
         vol           => $low_vol,
         %$modified
-    });
+    }, $debug_info);
 
     return $call_prob + $put_prob;
 }
