@@ -316,52 +316,53 @@ sub _risk_markup {
             day          => _timeindays($args)
         });
 
-        my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
-        my $bs_vega           = abs($bs_vega_formula->($self->_to_array(\%greek_params)));
+        my $bs_vega_formula   = _greek_formula_for('vega', $args->{contract_type});
+        my $bs_vega           = abs($bs_vega_formula->(_to_array(\%greek_params)));
         my $vol_spread_markup = min($vol_spread * $bs_vega, 0.7);
         $risk_markup += $vol_spread_markup;
-        $self->debug_information->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
+        $debug_info->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
 
         # spot_spread_markup
         if (not $is_intraday) {
-            my $spot_spread_size   = $self->_underlying_config->{spot_spread_size} // 50;
-            my $spot_spread_base   = $spot_spread_size * $self->_underlying_config->{pip_size};
-            my $bs_delta_formula   = _greek_formula_for('delta', $self->contract_type);
-            my $bs_delta           = abs($bs_delta_formula->($self->_to_array(\%greek_params)));
+            my $underlying_config = _underlying_config($args);
+            my $spot_spread_size   = $udnerlying_config->{spot_spread_size} // 50;
+            my $spot_spread_base   = $spot_spread_size * $underlying_config->{pip_size};
+            my $bs_delta_formula   = _greek_formula_for('delta', $args->{contract_type});
+            my $bs_delta           = abs($bs_delta_formula->(_to_array(\%greek_params)));
             my $spot_spread_markup = max(0, min($spot_spread_base * $bs_delta, 0.01));
             $risk_markup += $spot_spread_markup;
-            $self->debug_information->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
+            $debug_info->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
         }
 
         # Generally for indices and stocks the minimum available tenor for smile is 30 days.
         # We use this to price short term contracts, so adding a 5% markup for the volatility uncertainty.
-        if ($markup_config->{smile_uncertainty_markup} and $self->_timeindays < 7 and not $self->_is_atm_contract) {
+        if ($markup_config->{smile_uncertainty_markup} and _timeindays($args) < 7 and not _is_atm_contract($args)) {
             my $smile_uncertainty_markup = 0.05;
             $risk_markup += $smile_uncertainty_markup;
-            $self->debug_information->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
+            $debug_info->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
         }
 
         # end of day market risk markup
         # This is added for uncertainty in volatilities during rollover period.
         # The rollover time for volsurface is set at NY 1700. However, we are not sure when the actual rollover
         # will happen. Hence we add a 5% markup to the price. This markup applies to forex and commodities only.
-        if ($markup_config->{'end_of_day_markup'} and not $self->_is_atm_contract and $self->_timeindays <= 3) {
-            my $ny_1600 = $self->market_convention->{get_rollover_time}->($self->date_start)->minus_time_interval('1h');
-            if ($ny_1600->is_before($self->date_start) or ($is_intraday and $ny_1600->is_before($self->date_expiry))) {
+        if ($markup_config->{'end_of_day_markup'} and not _is_atm_contract($args) and _timeindays($args) <= 3) {
+            my $ny_1600 = $args->{market_convention}->{get_rollover_time}->($args->{date_start})->minus_time_interval('1h');
+            if ($ny_1600->is_before($args->{date_start}) or ($is_intraday and $ny_1600->is_before($args->{date_expiry}))) {
                 my $eod_market_risk_markup = 0.05;    # flat 5%
                 $risk_markup += $eod_market_risk_markup;
-                $self->debug_information->{risk_markup}{parameters}{end_of_day_markup} = $eod_market_risk_markup;
+                $debug_info->{risk_markup}{parameters}{end_of_day_markup} = $eod_market_risk_markup;
             }
         }
 
         # This is added for the high butterfly condition where the overnight butterfly is higher than threshold (0.01),
         # We add the difference between then original probability and adjusted butterfly probability as markup.
-        if ($markup_config->{'butterfly_markup'} and $self->_timeindays <= $self->market_data->{get_overnight_tenor}->()) {
+        if ($markup_config->{'butterfly_markup'} and _timeindays($args) <= _get_overnight_tenor($args)) {
             my $butterfly_cutoff = 0.01;
-            my $original_surface = $self->market_data->{get_volsurface_data}->($self->underlying_symbol);
+            my $original_surface = _get_vol_surface($args, $args->{underlying_symbol})->surface;
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
-            my $market_rr_bf     = $self->market_data->{get_market_rr_bf}->($first_term);
-            if ($first_term == $self->market_data->{get_overnight_tenor}->() and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
+            my $market_rr_bf     = _get_vol_surface($args)->get_market_rr_bf($first_term);
+            if ($first_term == _get_overnight_tenor() and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
                 my $original_bf = $market_rr_bf->{BF_25};
                 my $original_rr = $market_rr_bf->{RR_25};
                 my ($atm, $c25, $c75) = map { $original_surface->{$first_term}{smile}{$_} } qw(50 25 75);
@@ -371,14 +372,14 @@ sub _risk_markup {
                 $cloned_surface_data->{$first_term}{smile}{25} = $c25_mod;
                 $cloned_surface_data->{$first_term}{smile}{75} = $c75_mod;
                 my $vol_args = {
-                    strike => $self->_two_barriers ? $self->spot : $self->strikes->[0],
+                    strike => _two_barriers($args) ? $args->{spot} : $args->{strikes}->[0],
                     %{_get_vol_expiry($args)},
                 };
-                my $vol_after_butterfly_adjustment = $self->market_data->{get_volatility}->($vol_args, $cloned_surface_data);
-                my $butterfly_adjusted_prob = $self->_calculate_probability({vol => $vol_after_butterfly_adjustment});
-                my $butterfly_markup = min(0.1, abs($self->base_probability - $butterfly_adjusted_prob));
+                my $vol_after_butterfly_adjustment = _get_volatility($args, $vol_args, $cloned_surface_data);
+                my $butterfly_adjusted_prob = _calculate_probability($args, {vol => $vol_after_butterfly_adjustment});
+                my $butterfly_markup = min(0.1, abs(_base_probability($args) - $butterfly_adjusted_prob));
                 $risk_markup += $butterfly_markup;
-                $self->debug_information->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
+                $debug_info->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
             }
         }
 
@@ -386,7 +387,7 @@ sub _risk_markup {
         $risk_markup /= 2;
     }
 
-    $self->debug_information->{risk_markup}{amount} = $risk_markup;
+    $debug_info->{risk_markup}{amount} = $risk_markup;
 
     return $risk_markup;
 }
@@ -445,14 +446,14 @@ sub _formula_args {
 sub _calculate_probability {
     my ($args, $modified, $debug_info) = @_;
 
-    my $contract_type = delete $modified->{contract_type} || $self->contract_type;
+    my $contract_type = delete $modified->{contract_type} || $args->{contract_type};
 
     my $probability;
     if ($contract_type eq 'EXPIRYMISS') {
         $probability = _two_barrier_probability($args, $modified);
     } elsif ($contract_type eq 'EXPIRYRANGE') {
         my $discounted_probability = exp(-$args->{discount_rate} * _timeinyears($args));
-        $self->debug_information->{discounted_probability} = $discounted_probability;
+        $debug_info->{discounted_probability} = $discounted_probability;
         $probability = $discounted_probability - _two_barrier_probability($args, $modified);
     } else {
         my $priced_with = $args->{priced_with};
@@ -525,6 +526,11 @@ sub _two_barrier_probability {
     return $call_prob + $put_prob;
 }
 
+sub _get_overnight_tenor {
+    my $args = shift;
+
+    return _get_vol_surface($args)->_ON_day;
+}
 sub _get_volatility {
     my $args = shift;
     my $surface_data = shift;
@@ -605,7 +611,7 @@ sub _pricing_args {
 
 sub _to_array {
     my ($params) = @_;
-    my @array = map { ref $params->{$_} eq 'ARRAY' ? @{$params->{$_}} : $params->{$_} } @{$self->_formula_args};
+    my @array = map { ref $params->{$_} eq 'ARRAY' ? @{$params->{$_}} : $params->{$_} } @{_formula_args};
     return @array;
 }
 
