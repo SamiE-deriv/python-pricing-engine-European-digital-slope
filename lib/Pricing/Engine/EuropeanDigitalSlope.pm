@@ -187,6 +187,8 @@ state $supported_types = {
     EXPIRYRANGE => 1
 };
 
+state $formula_args = [qw(spot strikes _timeinyears discount_rate mu vol payouttime_code)];
+
 state $markup_config = {
     forex => {
         traded_market_markup => 1,
@@ -325,7 +327,7 @@ sub _risk_markup {
         # spot_spread_markup
         if (not $is_intraday) {
             my $underlying_config = _underlying_config($args);
-            my $spot_spread_size   = $udnerlying_config->{spot_spread_size} // 50;
+            my $spot_spread_size   = $underlying_config->{spot_spread_size} // 50;
             my $spot_spread_base   = $spot_spread_size * $underlying_config->{pip_size};
             my $bs_delta_formula   = _greek_formula_for('delta', $args->{contract_type});
             my $bs_delta           = abs($bs_delta_formula->(_to_array(\%greek_params)));
@@ -437,10 +439,6 @@ sub _is_intraday {
 sub _is_atm_contract {
     my $args = shift;
     return ($args->{_two_barriers} or $args->{spot} != $args->{strikes}->[0]) ? 0 : 1;
-}
-
-sub _formula_args {
-    return [qw(spot strikes _timeinyears discount_rate mu vol payouttime_code)];
 }
 
 sub _calculate_probability {
@@ -605,13 +603,13 @@ sub _greek_formula_for {
 
 sub _pricing_args {
     my $args = shift;
-    my %args = map { $_ => $args->{$_} } @{_formula_args};
+    my %args = map { $_ => $args->{$_} } @{$formula_args};
     return \%args;
 }
 
 sub _to_array {
     my ($params) = @_;
-    my @array = map { ref $params->{$_} eq 'ARRAY' ? @{$params->{$_}} : $params->{$_} } @{_formula_args};
+    my @array = map { ref $params->{$_} eq 'ARRAY' ? @{$params->{$_}} : $params->{$_} } @{$formula_args};
     return @array;
 }
 
