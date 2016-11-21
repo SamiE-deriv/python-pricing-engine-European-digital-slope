@@ -218,8 +218,26 @@ Required arguments for this engine to work.
 
 sub required_args {
     return [
-        qw(contract_type spot strikes date_start date_pricing date_expiry discount_rate mu vol payouttime_code q_rate r_rate priced_with underlying_symbol market_data market_convention)
+        qw(correlation_matrices trading_calendar contract_type spot strikes date_start date_pricing date_expiry discount_rate mu vol payouttime_code q_rate r_rate priced_with underlying_symbol market_convention volsurface_recorded_date)
     ];
+}
+
+sub _chronicle_reader {
+    my $args = shift;
+
+    return Data::Chronicle::Reader->new(
+        db_handle       => undef,
+        cache_reader => bless {
+            get => sub {
+                my ($self, $key) = @_;
+                print "Request for $key\n";
+                #key is in the form: interest_rate::USD
+                #result must be in JSON form
+                my $qf_document_hashref = $args->{$key};
+                return JSON::to_json($qf_document_hashref);
+            }
+        }
+    );
 }
 
 =head2 ask_probability
@@ -268,18 +286,20 @@ sub _base_probability {
     return max(0, min(1, _calculate_probability($args, {}, $debug_info)));
 }
 
-sub _get_vol_surface {
+sub _get_volsurface {
     my $args = shift;
 
     my $underlying = Quant::Framework::Underlying->new({
-        symbol => $args->{symbol}});
+        symbol => $args->{underlying_symbol}});
 
     my $class      = 'Quant::Framework::VolSurface::Delta';
     $class = 'Quant::Framework::VolSurface::Moneyness' if $underlying->volatility_surface_type eq 'moneyness';
 
     return $class->new({
             underlying => $underlying,
-            surface    => $args->{surface},
+            surface    => $args->{volsurface},
+            recorded_date => $args->{volsurface_recorded_date},
+            chronicle_reader => _chronicle_reader($args),
         });
 }
 
@@ -306,7 +326,7 @@ sub _risk_markup {
 
         my %greek_params = %{_pricing_args($args)};
 
-        my $volsurface = _get_vol_surface($args); 
+        my $volsurface = _get_volsurface($args); 
         my $vol_args = _get_vol_expiry($args);
         $vol_args->{delta} = 50;
         $greek_params{vol} = $volsurface->get_volatility($vol_args);
@@ -361,9 +381,9 @@ sub _risk_markup {
         # We add the difference between then original probability and adjusted butterfly probability as markup.
         if ($markup_config->{'butterfly_markup'} and _timeindays($args) <= _get_overnight_tenor($args)) {
             my $butterfly_cutoff = 0.01;
-            my $original_surface = _get_vol_surface($args, $args->{underlying_symbol})->surface;
+            my $original_surface = _get_volsurface($args, $args->{underlying_symbol})->surface;
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
-            my $market_rr_bf     = _get_vol_surface($args)->get_market_rr_bf($first_term);
+            my $market_rr_bf     = _get_volsurface($args)->get_market_rr_bf($first_term);
             if ($first_term == _get_overnight_tenor() and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
                 my $original_bf = $market_rr_bf->{BF_25};
                 my $original_rr = $market_rr_bf->{RR_25};
@@ -527,19 +547,20 @@ sub _two_barrier_probability {
 sub _get_overnight_tenor {
     my $args = shift;
 
-    return _get_vol_surface($args)->_ON_day;
+    return _get_volsurface($args)->_ON_day;
 }
 sub _get_volatility {
     my $args = shift;
+    my $vol_args = shift;
     my $surface_data = shift;
 
-    my $surface = _get_vol_surface($args);
+    my $volsurface = _get_volsurface($args);
     my $vol;
     if ($surface_data) {
         my $new_volsurface_obj = $volsurface->clone({surface_data => $surface_data});
-        $vol = $new_volsurface_obj->get_volatility($args);
+        $vol = $new_volsurface_obj->get_volatility($vol_args);
     } else {
-        $vol = $volsurface->get_volatility($args);
+        $vol = $volsurface->get_volatility($vol_args);
     }
 
     return $vol;
@@ -604,6 +625,9 @@ sub _greek_formula_for {
 sub _pricing_args {
     my $args = shift;
     my %args = map { $_ => $args->{$_} } @{$formula_args};
+
+    #timeinyears does not exist in input parameters, we have to calculate it
+    $args{_timeinyears} = _timeinyears($args);
     return \%args;
 }
 
@@ -616,7 +640,7 @@ sub _to_array {
 sub _get_first_tenor_on_surface {
     my $args = shift;
 
-    my $original_surface = $args->{volsurface}->{$args->{symbol}};
+    my $original_surface = $args->{volsurface}->{$args->{underlying_symbol}};
     my $first_term = (sort { $a <=> $b } keys %$original_surface)[0];
     return $first_term;
 }
