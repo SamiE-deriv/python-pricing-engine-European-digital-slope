@@ -218,26 +218,14 @@ Required arguments for this engine to work.
 
 sub required_args {
     return [
-        qw(correlation_matrices trading_calendar contract_type spot strikes date_start date_pricing date_expiry discount_rate mu vol payouttime_code q_rate r_rate priced_with underlying_symbol market_convention volsurface_recorded_date)
+        qw(volsurface volsurface_recorded_date contract_type spot strikes date_start date_pricing date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol market_convention chronicle_reader)
     ];
 }
 
 sub _chronicle_reader {
     my $args = shift;
 
-    return Data::Chronicle::Reader->new(
-        db_handle       => undef,
-        cache_reader => bless {
-            get => sub {
-                my ($self, $key) = @_;
-                print "Request for $key\n";
-                #key is in the form: interest_rate::USD
-                #result must be in JSON form
-                my $qf_document_hashref = $args->{$key};
-                return JSON::to_json($qf_document_hashref);
-            }
-        }
-    );
+    return $args->{chronicle_reader};
 }
 
 =head2 ask_probability
@@ -290,7 +278,7 @@ sub _get_volsurface {
     my $args = shift;
 
     my $underlying = Quant::Framework::Underlying->new({
-        symbol => $args->{underlying_symbol}});
+            symbol => $args->{underlying_symbol}});
 
     my $class      = 'Quant::Framework::VolSurface::Delta';
     $class = 'Quant::Framework::VolSurface::Moneyness' if $underlying->volatility_surface_type eq 'moneyness';
