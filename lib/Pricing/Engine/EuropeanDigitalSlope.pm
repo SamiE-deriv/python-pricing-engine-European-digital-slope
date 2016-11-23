@@ -218,14 +218,8 @@ Required arguments for this engine to work.
 
 sub required_args {
     return [
-        qw(volsurface volsurface_recorded_date contract_type spot strikes date_start date_pricing date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol market_convention chronicle_reader)
+        qw(for_date volsurface volsurface_recorded_date contract_type spot strikes date_start date_pricing date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol market_convention chronicle_reader)
     ];
-}
-
-sub _chronicle_reader {
-    my $args = shift;
-
-    return $args->{chronicle_reader};
 }
 
 =head2 ask_probability
@@ -271,14 +265,17 @@ sub _base_probability {
     my $debug_info = shift;
 
     return 1 if $debug_info->{error};
-    return max(0, min(1, _calculate_probability($args, {}, $debug_info)));
+    my $result = max(0, min(1, _calculate_probability($args, {}, $debug_info)));
+    return $result;
 }
 
 sub _get_volsurface {
     my $args = shift;
 
     my $underlying = Quant::Framework::Underlying->new({
-            symbol => $args->{underlying_symbol}});
+            symbol           => $args->{underlying_symbol},
+            chronicle_reader => $args->{chronicle_reder}
+        }, $args->{for_date});
 
     my $class      = 'Quant::Framework::VolSurface::Delta';
     $class = 'Quant::Framework::VolSurface::Moneyness' if $underlying->volatility_surface_type eq 'moneyness';
@@ -287,7 +284,7 @@ sub _get_volsurface {
             underlying => $underlying,
             surface    => $args->{volsurface},
             recorded_date => $args->{volsurface_recorded_date},
-            chronicle_reader => _chronicle_reader($args),
+            chronicle_reader => $args->{chronicle_reader},
         });
 }
 
@@ -303,12 +300,13 @@ sub _risk_markup {
 
     return 0 if $debug_info->{error};
 
-    my $market        = $args->{_underlying_config}->{market};
-    my $markup_config = $markup_config->{$market};
+    my $underlying_config = _underlying_config($args);
+    my $market        = $underlying_config->{market};
+    my $market_markup_config = $markup_config->{$market};
     my $is_intraday   = _is_intraday($args);
 
     my $risk_markup = 0;
-    if ($markup_config->{'traded_market_markup'}) {
+    if ($market_markup_config->{'traded_market_markup'}) {
         # risk_markup is zero for forward_starting contracts due to complaints from Australian affiliates.
         return $risk_markup if (_is_forward_starting($args));
 
@@ -346,7 +344,7 @@ sub _risk_markup {
 
         # Generally for indices and stocks the minimum available tenor for smile is 30 days.
         # We use this to price short term contracts, so adding a 5% markup for the volatility uncertainty.
-        if ($markup_config->{smile_uncertainty_markup} and _timeindays($args) < 7 and not _is_atm_contract($args)) {
+        if ($market_markup_config->{smile_uncertainty_markup} and _timeindays($args) < 7 and not _is_atm_contract($args)) {
             my $smile_uncertainty_markup = 0.05;
             $risk_markup += $smile_uncertainty_markup;
             $debug_info->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
@@ -356,7 +354,7 @@ sub _risk_markup {
         # This is added for uncertainty in volatilities during rollover period.
         # The rollover time for volsurface is set at NY 1700. However, we are not sure when the actual rollover
         # will happen. Hence we add a 5% markup to the price. This markup applies to forex and commodities only.
-        if ($markup_config->{'end_of_day_markup'} and not _is_atm_contract($args) and _timeindays($args) <= 3) {
+        if ($market_markup_config->{'end_of_day_markup'} and not _is_atm_contract($args) and _timeindays($args) <= 3) {
             my $ny_1600 = $args->{market_convention}->{get_rollover_time}->($args->{date_start})->minus_time_interval('1h');
             if ($ny_1600->is_before($args->{date_start}) or ($is_intraday and $ny_1600->is_before($args->{date_expiry}))) {
                 my $eod_market_risk_markup = 0.05;    # flat 5%
@@ -367,7 +365,7 @@ sub _risk_markup {
 
         # This is added for the high butterfly condition where the overnight butterfly is higher than threshold (0.01),
         # We add the difference between then original probability and adjusted butterfly probability as markup.
-        if ($markup_config->{'butterfly_markup'} and _timeindays($args) <= _get_overnight_tenor($args)) {
+        if ($market_markup_config->{'butterfly_markup'} and _timeindays($args) <= _get_overnight_tenor($args)) {
             my $butterfly_cutoff = 0.01;
             my $original_surface = _get_volsurface($args, $args->{underlying_symbol})->surface;
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
