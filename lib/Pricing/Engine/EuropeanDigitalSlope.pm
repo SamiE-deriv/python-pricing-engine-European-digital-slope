@@ -218,7 +218,9 @@ Required arguments for this engine to work.
 
 sub required_args {
     return [
-        qw(for_date volsurface volsurface_recorded_date contract_type spot strikes date_start date_pricing date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol market_convention chronicle_reader)
+        qw(for_date volsurface volsurface_recorded_date contract_type spot strikes date_start date_pricing 
+        date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol 
+        market_convention chronicle_reader)
     ];
 }
 
@@ -277,14 +279,16 @@ sub _get_volsurface {
             chronicle_reader => $args->{chronicle_reder}
         }, $args->{for_date});
 
-    my $class      = 'Quant::Framework::VolSurface::Delta';
+    my $class = 'Quant::Framework::VolSurface';
     $class = 'Quant::Framework::VolSurface::Moneyness' if $underlying->volatility_surface_type eq 'moneyness';
+    $class = 'Quant::Framework::VolSurface::Delta' if $underlying->volatility_surface_type eq 'delta';
 
     return $class->new({
             underlying => $underlying,
             surface    => $args->{volsurface},
             recorded_date => $args->{volsurface_recorded_date},
             chronicle_reader => $args->{chronicle_reader},
+            type => $underlying->volatility_surface_type,
         });
 }
 
@@ -312,14 +316,13 @@ sub _risk_markup {
 
         my %greek_params = %{_pricing_args($args)};
 
-        my $volsurface = _get_volsurface($args); 
         my $vol_args = _get_vol_expiry($args);
         $vol_args->{delta} = 50;
-        $greek_params{vol} = $volsurface->get_volatility($vol_args);
+        $greek_params{vol} = _get_volatility($args, $vol_args);
 
         # vol_spread_markup
         my $spread_type = _is_atm_contract($args) ? 'atm' : 'max';
-        my $vol_spread = $volsurface->get_spread({
+        my $vol_spread = _get_spread($args, {
             sought_point => $spread_type,
             day          => _timeindays($args)
         });
@@ -370,7 +373,7 @@ sub _risk_markup {
             my $original_surface = _get_volsurface($args, $args->{underlying_symbol})->surface;
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
             my $market_rr_bf     = _get_volsurface($args)->get_market_rr_bf($first_term);
-            if ($first_term == _get_overnight_tenor() and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
+            if ($first_term == _get_overnight_tenor($args) and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
                 my $original_bf = $market_rr_bf->{BF_25};
                 my $original_rr = $market_rr_bf->{RR_25};
                 my ($atm, $c25, $c75) = map { $original_surface->{$first_term}{smile}{$_} } qw(50 25 75);
@@ -535,10 +538,40 @@ sub _get_overnight_tenor {
 
     return _get_volsurface($args)->_ON_day;
 }
+
+sub _get_vol_at_strike {
+    my $args = shift;
+
+    return $args->{vol} if ( exists $args->{vol} );
+
+    my $vol_args     = {
+        strike => $args->{strikes}->[0],
+        q_rate => $args->{q_rate},
+        r_rate => $args->{r_rate},
+        spot   => $args->{spot},
+        from   => $args->{date_start},
+        to     => $args->{date_expiry},
+    };
+
+    if (scalar $args->{strikes} == 2 ) {
+        $vol_args->{strike} = $args->{spot};
+    }
+
+    return _get_volsurface($args)->get_volatility($vol_args);
+}
+
+sub _get_spread {
+    my ($args, $spread_args) = @_;
+
+    return _get_volsurface($args)->get_spread($spread_args);
+}
+
 sub _get_volatility {
     my $args = shift;
     my $vol_args = shift;
     my $surface_data = shift;
+
+    return $args->{vol} if ( exists $args->{vol} );
 
     my $volsurface = _get_volsurface($args);
     my $vol;
@@ -614,6 +647,8 @@ sub _pricing_args {
 
     #timeinyears does not exist in input parameters, we have to calculate it
     $args{_timeinyears} = _timeinyears($args);
+    $args{vol} = _get_vol_at_strike($args);
+
     return \%args;
 }
 
