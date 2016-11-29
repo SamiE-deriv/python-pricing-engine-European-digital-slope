@@ -24,11 +24,11 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =head1 VERSION
 
-Version 1.19
+Version 1.20
 
 =cut
 
-our $VERSION = '1.19';
+our $VERSION = '1.20';
 
 =head1 SYNOPSIS
 
@@ -586,22 +586,17 @@ sub _two_barrier_probability {
 
     my ($low_strike, $high_strike) = sort { $a <=> $b } @{$self->strikes};
 
-    my $vol_args = $self->_get_vol_expiry;
-    $vol_args->{strike} = $high_strike;
-    my $high_vol  = $self->market_data->{get_volatility}->($vol_args);
     my $call_prob = $self->_calculate_probability({
         contract_type => 'CALL',
         strikes       => [$high_strike],
-        vol           => $high_vol,
+        vol           => $self->vol->{high_barrier_vol},
         %$modified
     });
 
-    $vol_args->{strike} = $low_strike;
-    my $low_vol  = $self->market_data->{get_volatility}->($vol_args);
     my $put_prob = $self->_calculate_probability({
         contract_type => 'PUT',
         strikes       => [$low_strike],
-        vol           => $low_vol,
+        vol           => $self->vol->{low_barrier_vol},
         %$modified
     });
 
