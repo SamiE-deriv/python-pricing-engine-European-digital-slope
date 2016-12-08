@@ -370,7 +370,7 @@ sub _risk_markup {
         # We add the difference between then original probability and adjusted butterfly probability as markup.
         if ($market_markup_config->{'butterfly_markup'} and _timeindays($args) <= _get_overnight_tenor($args)) {
             my $butterfly_cutoff = 0.01;
-            my $original_surface = _get_volsurface($args, $args->{underlying_symbol})->surface;
+            my $original_surface = _get_volsurface($args)->surface;
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
             my $market_rr_bf     = _get_volsurface($args)->get_market_rr_bf($first_term);
             if ($first_term == _get_overnight_tenor($args) and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
