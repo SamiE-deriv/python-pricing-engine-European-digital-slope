@@ -17,7 +17,7 @@ before_install:
     - "cpanm Math::Business::BlackScholes::Binaries::Greeks::Delta"
     - "cpanm Test::Perl::Critic"
     - "cpanm MooseX::Singleton"
-    - "git clone https://d34c443afcc0c115c07590c76f7e3886190b3a76@github.com/regentmarkets/perl-Finance-Asset /tmp/perl-Finance-Asset"
+    - "git clone https://1994c85ce4f602fb682076e9a102261644fb3d19@github.com/regentmarkets/perl-Finance-Asset /tmp/perl-Finance-Asset"
     - "(cd /tmp/perl-Finance-Asset && perl Makefile.PL && make install)"
 script:
     - "perl Makefile.PL && make test"
