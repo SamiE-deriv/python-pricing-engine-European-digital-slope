@@ -279,9 +279,8 @@ sub _get_volsurface {
             chronicle_reader => $args->{chronicle_reder}
         }, $args->{for_date});
 
-    my $class = 'Quant::Framework::VolSurface';
+    my $class = 'Quant::Framework::VolSurface::Delta';
     $class = 'Quant::Framework::VolSurface::Moneyness' if $underlying->volatility_surface_type eq 'moneyness';
-    $class = 'Quant::Framework::VolSurface::Delta' if $underlying->volatility_surface_type eq 'delta';
 
     return $class->new({
             underlying => $underlying,
