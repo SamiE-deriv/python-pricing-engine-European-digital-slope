@@ -251,18 +251,18 @@ sub ask_probability {
         $debug_info->{error} = 'Date expiry is before date start';
     }
 
-    my $probability = _base_probability($args, $debug_info) + _risk_markup($args, $debug_info);
+    my $probability = theo_probability($args, $debug_info) + _risk_markup($args, $debug_info);
 
     return max(0, min(1, $probability));
 }
 
-=head2 base_probability
+=head2 theo_probability
 
-base probability.
+BlackScholes probability.
 
 =cut
 
-sub _base_probability {
+sub theo_probability {
     my $args = shift;
     my $debug_info = shift;
 
