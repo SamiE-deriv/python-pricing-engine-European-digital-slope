@@ -15,7 +15,7 @@ WriteMakefile(
     },
     BUILD_REQUIRES => {
         'Test::More'         => 0,
-        'Test::NoWarnings'   => 0,
+        'Test::FailWarnings' => 0,
         'Test::Exception'    => 0,
         'Scalar::Util'       => 0,
         'Date::Utility'      => 0,

@@ -228,12 +228,10 @@ state $supported_types = {
 state $markup_config = {
     forex => {
         traded_market_markup => 1,
-        end_of_day_markup    => 1,
         butterfly_markup     => 1
     },
     commodities => {
         traded_market_markup => 1,
-        end_of_day_markup    => 1,
     },
     stocks => {
         traded_market_markup     => 1,
@@ -379,19 +377,6 @@ sub risk_markup {
             my $smile_uncertainty_markup = 0.05;
             $risk_markup += $smile_uncertainty_markup;
             $self->debug_information->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
-        }
-
-        # end of day market risk markup
-        # This is added for uncertainty in volatilities during rollover period.
-        # The rollover time for volsurface is set at NY 1700. However, we are not sure when the actual rollover
-        # will happen. Hence we add a 5% markup to the price. This markup applies to forex and commodities only.
-        if ($markup_config->{'end_of_day_markup'} and not $self->_is_atm_contract and $self->_timeindays <= 3) {
-            my $ny_1600 = $self->market_convention->{get_rollover_time}->($self->date_start)->minus_time_interval('1h');
-            if ($ny_1600->is_before($self->date_start) or ($is_intraday and $ny_1600->is_before($self->date_expiry))) {
-                my $eod_market_risk_markup = 0.05;    # flat 5%
-                $risk_markup += $eod_market_risk_markup;
-                $self->debug_information->{risk_markup}{parameters}{end_of_day_markup} = $eod_market_risk_markup;
-            }
         }
 
         # This is added for the high butterfly condition where the overnight butterfly is higher than threshold (0.01),
