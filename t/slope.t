@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 14;
+use Test::More;
 use Test::NoWarnings;
 use Test::Exception;
 
@@ -494,3 +494,5 @@ subtest 'zero duration' => sub {
         isnt $slope->_timeinyears, 0, 'timeinyears isnt zero';
     }
 };
+
+done_testing();
