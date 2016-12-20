@@ -387,7 +387,7 @@ sub _risk_markup {
                 };
                 my $vol_after_butterfly_adjustment = _get_volatility($args, $vol_args, $cloned_surface_data);
                 my $butterfly_adjusted_prob = _calculate_probability($args, {vol => $vol_after_butterfly_adjustment}, $debug_info);
-                my $butterfly_markup = min(0.1, abs(_base_probability($args, $debug_info) - $butterfly_adjusted_prob));
+                my $butterfly_markup = min(0.1, abs(theo_probability($args, $debug_info) - $butterfly_adjusted_prob));
                 $risk_markup += $butterfly_markup;
                 $debug_info->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
             }
