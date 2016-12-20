@@ -109,7 +109,7 @@ sub _get_params {
         q_rate            => 0.002,
         r_rate            => 0.025,
         mu                => 0.023,
-        vol               => 0.1,
+        vol               => $ct eq ('CALL' or 'PUT') ? 0.1 : {high_barrier_vol => 0.1, low_barrier_vol => 0.15},
         payouttime_code   => 0,
         contract_type     => $ct,
         underlying_symbol => 'frxEURUSD',
