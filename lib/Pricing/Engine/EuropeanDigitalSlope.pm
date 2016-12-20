@@ -541,8 +541,6 @@ sub _get_overnight_tenor {
 sub _get_vol_at_strike {
     my $args = shift;
 
-    return $args->{vol} if ( exists $args->{vol} );
-
     my $vol_args     = {
         strike => $args->{strikes}->[0],
         q_rate => $args->{q_rate},
@@ -569,8 +567,6 @@ sub _get_volatility {
     my $args = shift;
     my $vol_args = shift;
     my $surface_data = shift;
-
-    return $args->{vol} if ( exists $args->{vol} );
 
     my $volsurface = _get_volsurface($args);
     my $vol;
@@ -642,13 +638,13 @@ sub _greek_formula_for {
 
 sub _pricing_args {
     my $args = shift;
-    my %args = map { $_ => $args->{$_} } @{$formula_args};
+    my %result = map { $_ => $args->{$_} } @{$formula_args};
 
     #timeinyears does not exist in input parameters, we have to calculate it
-    $args{_timeinyears} = _timeinyears($args);
-    $args{vol} = _get_vol_at_strike($args);
+    $result{_timeinyears} = _timeinyears($args);
+    $result{vol} = $args->{vol};
 
-    return \%args;
+    return \%result;
 }
 
 sub _to_array {
