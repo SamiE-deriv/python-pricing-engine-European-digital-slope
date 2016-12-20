@@ -416,50 +416,6 @@ subtest 'smile uncertainty markup' => sub {
     }
 };
 
-# The condition for this markup is a little confusing.
-# Trying to test this with best effort.
-subtest 'end of day markup' => sub {
-    my $pp = _get_params('CALL', 'numeraire');
-    foreach my $market (qw(forex commodities)) {
-        $pp->{_is_atm_contract} = 0;
-        note("market: $market, $underlyings{$market}");
-        $pp->{underlying_symbol} = $underlyings{$market};
-        $pp->{date_expiry} = $now->plus_time_interval('4d');
-        my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        $slope->risk_markup;
-        ok $slope->_timeindays > 3, 'timeindays > 3';
-        ok !exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup will not be applied to duration more than 3 days';
-        note("rollover time: 22:00, volatility uncertainty starts one hour before/after");
-        note("contract start: " . $now->datetime);
-        $pp->{date_expiry} = $now->plus_time_interval('17h59s');
-        $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        $slope->risk_markup;
-        ok $slope->_timeindays < 3, 'timeindays < 3';
-        ok !exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup will not be applied to contract expiring before 21:00';
-        $pp->{date_start} = $pp->{date_pricing} = $now->truncate_to_day->plus_time_interval('21h1s');
-        $pp->{date_expiry} = $pp->{date_start}->plus_time_interval('3h');
-        $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        $slope->risk_markup;
-        ok exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup will be applied to intraday contract that starts after 21:00 GMT';
-        note ('forced to non atm contract');
-        $pp->{_is_atm_contract} = 1;
-        $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        $slope->risk_markup;
-        ok !exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup will not be applied to non atm contract';
-    }
-
-    delete $pp->{_is_atm_contract};
-    foreach my $market (qw(stocks indices)) {
-        note("market: $market, $underlyings{$market}");
-        $pp->{underlying_symbol} = $underlyings{$market};
-        $pp->{date_start} = $pp->{date_pricing} = $now->truncate_to_day->plus_time_interval('21h1s');
-        $pp->{date_expiry} = $pp->{date_start}->plus_time_interval('3h');
-        my $slope = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        $slope->risk_markup;
-        ok !exists $slope->debug_information->{risk_markup}{parameters}{end_of_day_markup}, 'end of day markup will not be applied to intraday contract that starts after 21:00 GMT';
-    }
-};
-
 subtest 'butterfly markup' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     foreach my $market (qw(stocks indices commodities)) {
