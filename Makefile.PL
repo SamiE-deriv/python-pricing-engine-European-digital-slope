@@ -27,6 +27,7 @@ WriteMakefile(
         'Date::Utility'                                         => 0,
         'YAML::XS'                                              => 0,
         'Finance::Asset'                                        => 0,
+        'Quant::Framework'                                      => 0,
         'Math::Function::Interpolator'                          => 0,
         'Math::Business::BlackScholes::Binaries'                => 0,
         'Math::Business::BlackScholes::Binaries::Greeks::Vega'  => 0,
