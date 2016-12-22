@@ -406,8 +406,6 @@ subtest 'spot spread markup' => sub {
         ok $debug_information->{risk_markup}{parameters}{spot_spread_markup} > 0, 'spot spread markup is > 0';
     }
 };
-    $DB::single=1;
-
 subtest 'smile uncertainty markup' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     foreach my $market (qw(indices stocks)) {
