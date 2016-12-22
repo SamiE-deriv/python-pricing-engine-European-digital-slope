@@ -1,4 +1,4 @@
-sudo: false
+sudo: required
 language: perl
 matrix:
     fast_finish: true
