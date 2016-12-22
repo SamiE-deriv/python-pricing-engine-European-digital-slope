@@ -12,6 +12,9 @@ use Math::Business::BlackScholes::Binaries;
 use Math::Business::BlackScholes::Binaries::Greeks::Vega;
 use Math::Business::BlackScholes::Binaries::Greeks::Delta;
 use Machine::Epsilon;
+use Quant::Framework::Underlying;
+use Quant::Framework::VolSurface::Delta;
+use Quant::Framework::VolSurface::Moneyness;
 
 =head1 NAME
 
@@ -222,13 +225,7 @@ sub required_args {
     ];
 }
 
-=head2 ask_probability
-
-Final probability of the contract.
-
-=cut
-
-sub ask_probability {
+sub _validate {
     my $args = shift;
     my $debug_info = shift;
 
@@ -248,6 +245,19 @@ sub ask_probability {
     if ($args->{date_expiry}->is_before($args->{date_start})) {
         $debug_info->{error} = 'Date expiry is before date start';
     }
+}
+
+=head2 ask_probability
+
+Final probability of the contract.
+
+=cut
+
+sub ask_probability {
+    my $args = shift;
+    my $debug_info = shift;
+
+    _validate($args, $debug_info);
 
     my $probability = theo_probability($args, $debug_info) + _risk_markup($args, $debug_info);
 
@@ -263,6 +273,8 @@ BlackScholes probability.
 sub theo_probability {
     my $args = shift;
     my $debug_info = shift;
+
+    _validate($args, $debug_info);
 
     return 1 if $debug_info->{error};
     my $result = max(0, min(1, _calculate_probability($args, {}, $debug_info)));
@@ -314,8 +326,7 @@ sub _risk_markup {
         my %greek_params = %{_pricing_args($args)};
 
         my $vol_args = _get_vol_expiry($args);
-        $vol_args->{delta} = 50;
-        $greek_params{vol} = _get_volatility($args, $vol_args);
+        $greek_params{vol} = _get_atm_volatility($args, $vol_args);
 
         # vol_spread_markup
         my $spread_type = _is_atm_contract($args) ? 'atm' : 'max';
@@ -356,7 +367,7 @@ sub _risk_markup {
             my $butterfly_cutoff = 0.01;
             my $original_surface = _get_volsurface($args)->surface;
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
-            my $market_rr_bf     = _get_volsurface($args)->get_market_rr_bf($first_term);
+            my $market_rr_bf     = _get_market_rr_bf($args, $first_term);
             if ($first_term == _get_overnight_tenor($args) and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
                 my $original_bf = $market_rr_bf->{BF_25};
                 my $original_rr = $market_rr_bf->{RR_25};
@@ -546,6 +557,21 @@ sub _get_spread {
     my ($args, $spread_args) = @_;
 
     return _get_volsurface($args)->get_spread($spread_args);
+}
+
+sub _get_market_rr_bf {
+    my $args = shift;
+    my $first_term = shift;
+    
+    return _get_volsurface($args)->get_market_rr_bf($first_term);
+}
+
+sub _get_atm_volatility {
+    my $args = shift;
+    my $vol_args = shift;
+
+    $vol_args->{delta} = 50;
+    return _get_volatility($args, $vol_args);
 }
 
 sub _get_volatility {
