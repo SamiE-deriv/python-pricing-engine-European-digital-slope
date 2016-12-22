@@ -25,6 +25,7 @@ before_install:
     - "cpanm Moose::Util::TypeConstraints"
     - "cpanm MooseX::Types"
     - "cpanm MooseX::Types::Moose"
+    - "cpanm DBIx::TransactionManager::Distributed"
     - "cpanm Math::Function::Interpolator"
     - "cpanm Math::Business::BlackScholes::Binaries"
     - "cpanm Math::Business::BlackScholes::Binaries::Greeks::Vega"
