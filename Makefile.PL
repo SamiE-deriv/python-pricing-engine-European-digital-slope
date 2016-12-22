@@ -26,6 +26,7 @@ WriteMakefile(
         'List::Util'                                            => 0,
         'Date::Utility'                                         => 0,
         'YAML::XS'                                              => 0,
+        'Cache::RedisDB'                                        => 0,
         'Finance::Asset'                                        => 0,
         'Quant::Framework'                                      => 0,
         'Math::Function::Interpolator'                          => 0,
