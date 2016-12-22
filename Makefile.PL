@@ -28,6 +28,8 @@ WriteMakefile(
         'YAML::XS'                                              => 0,
         'Cache::RedisDB'                                        => 0,
         'Finance::Asset'                                        => 0,
+        'Format::Util::Numbers'                                 => 0,
+        'JSON'                                                  => 0,
         'Quant::Framework'                                      => 0,
         'Math::Function::Interpolator'                          => 0,
         'Math::Business::BlackScholes::Binaries'                => 0,
