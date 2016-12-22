@@ -33,6 +33,8 @@ before_install:
     - "cpanm MooseX::Singleton"
     - "git clone https://1994c85ce4f602fb682076e9a102261644fb3d19@github.com/regentmarkets/perl-Finance-Asset /tmp/perl-Finance-Asset"
     - "(cd /tmp/perl-Finance-Asset && perl Makefile.PL && make install)"
+    - "git clone https://1994c85ce4f602fb682076e9a102261644fb3d19@github.com/regentmarkets/perl-Postgres-FeedDB /tmp/perl-Postgres-FeedDB"
+    - "(cd /tmp/perl-Postgres-FeedDB && perl Makefile.PL && make install)"
     - "git clone https://1994c85ce4f602fb682076e9a102261644fb3d19@github.com/regentmarkets/perl-Quant-Framework /tmp/perl-Quant-Framework"
     - "(cd /tmp/perl-Quant-Framework && perl Makefile.PL && make install && cpanm -n --installdeps .)"
 script:
