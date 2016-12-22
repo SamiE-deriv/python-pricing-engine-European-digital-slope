@@ -19,6 +19,7 @@ before_install:
     - /tmp/travis-scripts/clone_branch.sh regentmarkets/cpan
     - /tmp/travis-scripts/redis.sh
     - . /tmp/travis-scripts/setup_perl5lib.sh
+
 script:
     - perl Makefile.PL && RELEASE_TESTING=1 make test
 
