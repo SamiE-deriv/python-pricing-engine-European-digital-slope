@@ -131,7 +131,7 @@ sub _get_params {
 subtest 'CALL probability' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     my $debug = {};
-    my $numeraire = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
+    my $numeraire = Pricing::Engine::EuropeanDigitalSlope::_bs_probability($pp, $debug);
     ok looks_like_number($numeraire), 'probability looks like number';
     ok $numeraire <= 1, 'probability <= 1';
     ok $numeraire >= 0, 'probability >= 0';
@@ -151,7 +151,7 @@ subtest 'CALL probability' => sub {
 
     $pp = _get_params('CALL', 'quanto');
     $debug = {};
-    $quanto = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
+    $quanto = Pricing::Engine::EuropeanDigitalSlope::_bs_probability($pp, $debug);
     ok looks_like_number($quanto), 'probability looks like number';
     ok $quanto <= 1, 'probability <= 1';
     ok $quanto >= 0, 'probability >= 0';
@@ -170,7 +170,7 @@ subtest 'CALL probability' => sub {
 
     $debug = {};
     $pp = _get_params('CALL', 'base');
-    $base = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
+    $base = Pricing::Engine::EuropeanDigitalSlope::_bs_probability($pp, $debug);
     ok looks_like_number($base), 'probability looks like number';
     ok $base <= 1, 'probability <= 1';
     ok $base >= 0, 'probability >= 0';
@@ -195,7 +195,7 @@ subtest 'CALL probability' => sub {
 subtest 'EXPIRYMISS probability' => sub {
     my $pp = _get_params('EXPIRYMISS', 'numeraire');
     my $debug = {};
-    my $numeraire = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
+    my $numeraire = Pricing::Engine::EuropeanDigitalSlope::_bs_probability($pp, $debug);
     ok looks_like_number($numeraire), 'probability looks like number';
     ok $numeraire <= 1, 'probability <= 1';
     ok $numeraire >= 0, 'probability >= 0';
@@ -233,7 +233,7 @@ subtest 'EXPIRYMISS probability' => sub {
 subtest 'EXPIRYRANGE probability' => sub {
     my $pp = _get_params('EXPIRYRANGE', 'numeraire');
     my $debug_information = {};
-    my $numeraire = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
+    my $numeraire = Pricing::Engine::EuropeanDigitalSlope::_bs_probability($pp, $debug_information);
     ok looks_like_number($numeraire), 'probability looks like number';
     ok $numeraire <= 1, 'probability <= 1';
     ok $numeraire >= 0, 'probability >= 0';
@@ -275,13 +275,13 @@ subtest 'unsupported contract_type' => sub {
         my $pp = _get_params('unsupported', 'numeraire');
         $pp->{strikes} = [100];
         my $debug = {};
-        my $slope_bs = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
+        my $slope_bs = Pricing::Engine::EuropeanDigitalSlope::_bs_probability($pp, $debug);
         is $slope_bs, 1, 'probabilility is 1';
         ok $debug->{error}, 'has error';
         like $debug->{error}, qr/Unsupported contract type/, 'correct error message';
 
         $debug = {};
-        my $slope_ask = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug);
+        my $slope_ask = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
 
         is $slope_ask, 1, 'probabilility is 1';
         ok $debug->{error}, 'has error';
@@ -295,10 +295,10 @@ subtest 'unregconized priced_with' => sub {
         my $debug = {};
         my $pp = _get_params('CALL', 'unregconized');
         $pp->{discount_rate} = 0.01;
-        my $slope_theo = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp);
+        my $slope_theo = Pricing::Engine::EuropeanDigitalSlope::_bs_probability($pp);
         is $slope_theo,    1,                            'probabilility is 1';
 
-        my $slope_ask = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug);
+        my $slope_ask = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
         is $slope_ask,       1,                            'probabilility is 1';
         ok $debug->{error},             'has error';
         like $debug->{error},           qr/Unrecognized priced_with/, 'correct error message';
@@ -311,13 +311,13 @@ subtest 'barrier error' => sub {
         my $pp = _get_params('CALL', 'numeraire');
         $pp->{strikes} = [];
         my $debug = {};
-        my $slope_theo = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
+        my $slope_theo = Pricing::Engine::EuropeanDigitalSlope::_bs_probability($pp, $debug);
         ok $debug->{error},             'has error';
         like $debug->{error},           qr/Barrier error for/, 'correct error message';
         is $slope_theo,    1, 'probabilility is 1';
 
         $debug = {};
-        my $slope_ask = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug);
+        my $slope_ask = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
         ok $debug->{error},             'has error';
         like $debug->{error},           qr/Barrier error for/, 'correct error message';
         is $slope_ask,       1, 'probabilility is 1';
@@ -329,13 +329,13 @@ subtest 'barrier error' => sub {
         shift @{$pp->{strikes}};
         my $debug = {};
 
-        my $slope_theo = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
+        my $slope_theo = Pricing::Engine::EuropeanDigitalSlope::_bs_probability($pp, $debug);
         ok $debug->{error},             'has error';
         like $debug->{error},           qr/Barrier error for/, 'correct error message';
         is $slope_theo,       1, 'probabilility is 1';
 
         $debug = {};
-        my $slope_ask = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug);
+        my $slope_ask = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
 
         ok $debug->{error},             'has error';
         like $debug->{error},           qr/Barrier error for/, 'correct error message';
@@ -349,7 +349,7 @@ subtest 'expiry before start' => sub {
         my $debug = {};
         my $pp = _get_params('CALL', 'numeraire');
         $pp->{date_expiry} = Date::Utility->new('1999-01-02');
-        my $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug);
+        my $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
         ok $debug->{error},             'has error';
         like $debug->{error},           qr/Date expiry is before date start/, 'correct error message';
         is $slope,       1, 'probabilility is 1';
@@ -367,7 +367,7 @@ subtest 'zero risk markup' => sub {
     my $debug = {};
     my $pp = _get_params('CALL', 'numeraire');
     $pp->{underlying_symbol} = 'R_100';
-    my $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug);
+    my $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
     ok !$debug->{error},                'no error';
     ok !Pricing::Engine::EuropeanDigitalSlope::_is_forward_starting($pp, $debug),  'non forward starting contract';
     is Pricing::Engine::EuropeanDigitalSlope::_risk_markup($pp, $debug), 0, 'risk markup is zero for random market';
@@ -375,7 +375,7 @@ subtest 'zero risk markup' => sub {
     $debug = {};
     $pp = _get_params('CALL', 'numeraire');
     $pp->{date_start} = $now->plus_time_interval('6s');
-    $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug);
+    $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug);
     ok !$debug->{error}, 'no error';
     ok Pricing::Engine::EuropeanDigitalSlope::_is_forward_starting($pp, $debug),  'forward starting contract';
     is Pricing::Engine::EuropeanDigitalSlope::_risk_markup($pp, $debug), 0, 'risk markup is zero for forward starting contract';
@@ -387,11 +387,12 @@ subtest 'zero risk markup' => sub {
 subtest 'spot spread markup' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     foreach my $market (keys %underlyings) {
+        $DB::single=1;
         note("market: $market, $underlyings{$market}");
         $pp->{underlying_symbol} = $underlyings{$market};
         $pp->{date_expiry} = $now->plus_time_interval('24h');
         my $debug_information = {};
-        my $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+        my $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
         ok Pricing::Engine::EuropeanDigitalSlope::_is_intraday($pp), 'is intraday';
         ok !exists $debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup will not be applied to intraday contract';
         ok exists $debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup will apply to intraday contract';
@@ -399,7 +400,7 @@ subtest 'spot spread markup' => sub {
         # But due to FX convention of integer number of days, 2 days work for every market.
         $pp->{date_expiry} = $now->plus_time_interval('2d');
         $debug_information = {};
-        $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+        $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
         ok !Pricing::Engine::EuropeanDigitalSlope::_is_intraday($pp), 'is intraday';
         ok exists $debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup will be applied to non intraday contract';
         ok exists $debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup will apply to non intraday contract';
@@ -414,18 +415,18 @@ subtest 'smile uncertainty markup' => sub {
         $pp->{date_expiry} = $now->plus_time_interval('6d');
         $pp->{strikes} = [100];
         my $debug_information = {};
-        my $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+        my $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
         ok Pricing::Engine::EuropeanDigitalSlope::_is_atm_contract($pp), 'ATM contract';
         is Pricing::Engine::EuropeanDigitalSlope::_timeindays($pp), 6, 'timeindays < 7';
         ok !exists $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will not be applied to less than 7 days ATM contract';
         $pp->{date_expiry} = $now->plus_time_interval('7d');
         $pp->{strikes} = [101];
-        $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+        $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
         ok !Pricing::Engine::EuropeanDigitalSlope::_is_atm_contract($pp), 'non ATM contract';
         is Pricing::Engine::EuropeanDigitalSlope::_timeindays($pp), 7, 'timeindays == 7';
         ok !exists $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will not be applied to 7 days non-ATM contract';
         $pp->{date_expiry} = $now->plus_time_interval('6d');
-        $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+        $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
         ok !Pricing::Engine::EuropeanDigitalSlope::_is_atm_contract($pp), 'non ATM contract';
         is Pricing::Engine::EuropeanDigitalSlope::_timeindays($pp), 6, 'timeindays < 7';
         ok exists $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will be applied to less than 7 days non-ATM contract';
@@ -437,7 +438,7 @@ subtest 'smile uncertainty markup' => sub {
         $pp->{underlying_symbol} = $underlyings{$market};
         $pp->{strikes} = [101];
         $pp->{date_expiry} = $now->plus_time_interval('6d');
-        my $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+        my $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
         ok !Pricing::Engine::EuropeanDigitalSlope::_is_atm_contract($pp), 'non ATM contract';
         is Pricing::Engine::EuropeanDigitalSlope::_timeindays($pp), 6, 'timeindays < 7';
         ok !exists $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will not apply to less than 7 days non-ATM contract';
@@ -450,7 +451,7 @@ subtest 'butterfly markup' => sub {
         note("market: $market, $underlyings{$market}");
         $pp->{underlying_symbol} = $underlyings{$market};
         $pp->{date_expiry}       = $now->plus_time_interval('1d');
-        $slope                   = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+        $slope                   = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
         ok !exists $debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup';
     }
 
@@ -458,7 +459,7 @@ subtest 'butterfly markup' => sub {
     note("market: $market, $underlyings{$market}");
     $pp->{underlying_symbol} = $underlyings{$market};
     $pp->{date_expiry}       = $now->plus_time_interval('1d');
-    $slope                   = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+    $slope                   = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
     ok exists $debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup';
 
     # no butterfly markup if overnight butterfly is smaller than 0.01
@@ -469,7 +470,7 @@ subtest 'butterfly markup' => sub {
                 BF_25 => 0.009,
             }});
     $debug_information = {};
-    $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+    $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
     ok !exists $debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup will not be applied if the overnight butterfly is smaller than 0.01';
     $module->unmock('_get_market_rr_bf');
 
@@ -497,14 +498,14 @@ subtest 'butterfly markup' => sub {
             },
         };
     $debug_information = {};
-    $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+    $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
     ok !exists $debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup will not be applied if there is no overnight smile on the volatility surface';
 
     # no butterfly markup if not an overnight contract.
     $pp->{market_data} = $market_data;
     $pp->{date_expiry} = $now->plus_time_interval('2d');
     $debug_information = {};
-    $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+    $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
     ok !exists $debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup will not be applied if it is not an overnight contract';
 };
 
@@ -512,7 +513,7 @@ subtest 'zero duration' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     $pp->{date_pricing} = $pp->{date_expiry};
     lives_ok {
-        $slope = Pricing::Engine::EuropeanDigitalSlope::ask_probability($pp, $debug_information);
+        $slope = Pricing::Engine::EuropeanDigitalSlope::theo_probability($pp, $debug_information);
         isnt Pricing::Engine::EuropeanDigitalSlope::_timeinyears($pp), 0, 'timeinyears isnt zero';
     }
 };

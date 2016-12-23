@@ -244,30 +244,30 @@ sub _validate {
     }
 }
 
-=head2 ask_probability
+=head2 theo_probability
 
 Final probability of the contract.
 
 =cut
 
-sub ask_probability {
+sub theo_probability {
     my $args = shift;
     my $debug_info = shift;
 
     _validate($args, $debug_info);
 
-    my $probability = theo_probability($args, $debug_info) + _risk_markup($args, $debug_info);
+    my $probability = _bs_probability($args, $debug_info) + _risk_markup($args, $debug_info);
 
     return max(0, min(1, $probability));
 }
 
-=head2 theo_probability
+=head2 _bs_probability
 
 BlackScholes probability.
 
 =cut
 
-sub theo_probability {
+sub _bs_probability {
     my $args = shift;
     my $debug_info = shift;
 
@@ -380,7 +380,7 @@ sub _risk_markup {
                 };
                 my $vol_after_butterfly_adjustment = _get_volatility($args, $vol_args, $cloned_surface_data);
                 my $butterfly_adjusted_prob = _calculate_probability($args, {vol => $vol_after_butterfly_adjustment}, $debug_info);
-                my $butterfly_markup = min(0.1, abs(theo_probability($args, $debug_info) - $butterfly_adjusted_prob));
+                my $butterfly_markup = min(0.1, abs(_bs_probability($args, $debug_info) - $butterfly_adjusted_prob));
                 $risk_markup += $butterfly_markup;
                 $debug_info->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
             }
