@@ -16,6 +16,7 @@ before_install:
     - AUTHOR_TESTING=0 source ~/travis-perl-helpers/init
     - PREBUILT_REPO="git@github.com:binary-com/test-perl.git" build-perl
     - sudo mkdir -p /etc/rmg; sudo ln -s $(dirname $(which perl)) /etc/rmg/bin
+    - /tmp/travis-scripts/fixHostName.sh
     - sudo mkdir -p /home/git/regentmarkets
 
     - /tmp/travis-scripts/clone_branch.sh regentmarkets/cpan
@@ -26,6 +27,8 @@ before_install:
 
 install:
     - source /tmp/travis-scripts/devbox_path.sh
+    - /tmp/travis-scripts/devbox.sh *.yml
+    - /tmp/travis-scripts/setup_logs.sh
     - . /tmp/travis-scripts/setup_perl5lib.sh
 
 script:
