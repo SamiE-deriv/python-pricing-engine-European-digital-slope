@@ -17,15 +17,10 @@ before_install:
     - PREBUILT_REPO="git@github.com:binary-com/test-perl.git" build-perl
     - sudo mkdir -p /etc/rmg; sudo ln -s $(dirname $(which perl)) /etc/rmg/bin
     - /tmp/travis-scripts/fixHostName.sh
-    - dpkg -l | grep postgres
-    - pg_lsclusters
-    - /tmp/travis-scripts/postgres.sh
-    - sudo mkdir -p /home/git/binary-com
     - sudo mkdir -p /home/git/regentmarkets
 
     - /tmp/travis-scripts/clone_branch.sh regentmarkets/cpan
 
-    - /tmp/travis-scripts/postgres_restart.sh
     - /tmp/travis-scripts/redis.sh
     - . /tmp/travis-scripts/setup_perl5lib.sh
     - cpanm -n --installdeps .
@@ -33,11 +28,6 @@ before_install:
 install:
     - source /tmp/travis-scripts/devbox_path.sh
     - /tmp/travis-scripts/devbox.sh *.yml
-
-    - /tmp/travis-scripts/remove_postgresdb_config.sh
-    - /tmp/travis-scripts/setup_feeddb.sh
-    - /tmp/travis-scripts/setup_chronicledb.sh
-
     - /tmp/travis-scripts/setup_logs.sh
     - . /tmp/travis-scripts/setup_perl5lib.sh
 
