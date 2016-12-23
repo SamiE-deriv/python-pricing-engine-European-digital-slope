@@ -33,7 +33,7 @@ our $VERSION = '1.21';
   use Pricing::Engine::EuropeanDigitalSlope;
 
   my $now = time;
-  my $pe = Pricing::Engine::EuropeanDigitalSlope->new(
+  my $proability = Pricing::Engine::EuropeanDigitalSlope::new(
       contract_type => 'CALL' # supports CALL, PUT, EXPIRYMISS and EXPIRYRANGE
       underlying_symbol => 'frxUSDJPY',
       spot => 120,
@@ -51,9 +51,6 @@ our $VERSION = '1.21';
       market_data => $market_data, # hash reference of subroutine reference to fetch market data
       market_convention => $market_convention, # hash reference of subroutine reference to fetch market convention information
   );
-
-  Final probability (base_probability + risk_markup)
-  my $ask_probability = $pe->ask_probability;
 
 =head1 ATTRIBUTES
 
