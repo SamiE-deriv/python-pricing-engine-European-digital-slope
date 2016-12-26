@@ -360,7 +360,6 @@ subtest 'zero risk markup' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     $pp->{underlying_symbol} = 'R_100';
     my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    my $slope = $pe->theo_probability;
     ok !$pe->error,                'no error';
     ok !$pe->_is_forward_starting,  'non forward starting contract';
     is $pe->_risk_markup, 0, 'risk markup is zero for random market';
@@ -368,7 +367,6 @@ subtest 'zero risk markup' => sub {
     $pp = _get_params('CALL', 'numeraire');
     $pp->{date_start} = $now->plus_time_interval('6s');
     my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    $slope = $pe->theo_probability;
     ok !$pe->error, 'no error';
     ok $pe->_is_forward_starting,  'forward starting contract';
     is $pe->_risk_markup, 0, 'risk markup is zero for forward starting contract';
@@ -383,19 +381,19 @@ subtest 'spot spread markup' => sub {
         note("market: $market, $underlyings{$market}");
         $pp->{underlying_symbol} = $underlyings{$market};
         $pp->{date_expiry} = $now->plus_time_interval('24h');
-        $DB::single=1;
         my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         my $debug_information = $pe->debug_info;
-        my $slope = $pe->theo_probability;
-        ok $pe->_is_intraday($pp), 'is intraday';
+        ok $pe->_is_intraday, 'is intraday';
+        $pe->_risk_markup;
         ok !exists $debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup will not be applied to intraday contract';
         ok exists $debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup will apply to intraday contract';
         # By right we should we testing for 1day 1 seconds here.
         # But due to FX convention of integer number of days, 2 days work for every market.
         $pp->{date_expiry} = $now->plus_time_interval('2d');
-        $slope = $pe->theo_probability;
+        $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         $debug_information = $pe->debug_info;
-        ok !$pe->_is_intraday($pp), 'is intraday';
+        ok !$pe->_is_intraday, 'is intraday';
+        $pe->_risk_markup;
         ok exists $debug_information->{risk_markup}{parameters}{spot_spread_markup}, 'spot spread markup will be applied to non intraday contract';
         ok exists $debug_information->{risk_markup}{parameters}{vol_spread_markup}, 'vol spread markup will apply to non intraday contract';
         ok $debug_information->{risk_markup}{parameters}{spot_spread_markup} > 0, 'spot spread markup is > 0';
@@ -410,22 +408,23 @@ subtest 'smile uncertainty markup' => sub {
         $pp->{strikes} = [100];
         my $debug_information = {};
         my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        my $slope = $pe->theo_probability;
         ok $pe->_is_atm_contract, 'ATM contract';
         is $pe->_timeindays, 6, 'timeindays < 7';
+        $pe->_risk_markup;
         ok !exists $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will not be applied to less than 7 days ATM contract';
         $pp->{date_expiry} = $now->plus_time_interval('7d');
         $pp->{strikes} = [101];
         $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        $slope = $pe->theo_probability;
-        ok !$pe->_is_atm_contract($pp), 'non ATM contract';
-        is $pe->_timeindays($pp), 7, 'timeindays == 7';
+        ok !$pe->_is_atm_contract, 'non ATM contract';
+        is $pe->_timeindays, 7, 'timeindays == 7';
+        $pe->_risk_markup;
         ok !exists $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will not be applied to 7 days non-ATM contract';
         $pp->{date_expiry} = $now->plus_time_interval('6d');
         $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        $slope = $pe->theo_probability;
-        ok !$pe->_is_atm_contract($pp), 'non ATM contract';
-        is $pe->_timeindays($pp), 6, 'timeindays < 7';
+        $debug_information = $pe->debug_info;
+        ok !$pe->_is_atm_contract, 'non ATM contract';
+        is $pe->_timeindays, 6, 'timeindays < 7';
+        $pe->_risk_markup;
         ok exists $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will be applied to less than 7 days non-ATM contract';
         is $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 0.05, 'smile uncertainty markup is 0.05';
     }
@@ -436,9 +435,9 @@ subtest 'smile uncertainty markup' => sub {
         $pp->{strikes} = [101];
         $pp->{date_expiry} = $now->plus_time_interval('6d');
         my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        my $slope = $pe->theo_probability;
-        ok !$pe->_is_atm_contract($pp), 'non ATM contract';
-        is $pe->_timeindays($pp), 6, 'timeindays < 7';
+        ok !$pe->_is_atm_contract, 'non ATM contract';
+        is $pe->_timeindays, 6, 'timeindays < 7';
+        $pe->_risk_markup;
         ok !exists $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will not apply to less than 7 days non-ATM contract';
     }
 };
@@ -450,7 +449,8 @@ subtest 'butterfly markup' => sub {
         $pp->{underlying_symbol} = $underlyings{$market};
         $pp->{date_expiry}       = $now->plus_time_interval('1d');
         my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        $slope                   = $pe->theo_probability;
+        $pe->_risk_markup;
+        $debug_information = $pe->debug_info;
         ok !exists $debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup';
     }
 
@@ -459,7 +459,8 @@ subtest 'butterfly markup' => sub {
     $pp->{underlying_symbol} = $underlyings{$market};
     $pp->{date_expiry}       = $now->plus_time_interval('1d');
     my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    $slope                   = $pe->theo_probability;
+    $pe->_risk_markup;
+    $debug_information = $pe->debug_info;
     ok exists $debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup';
 
     # no butterfly markup if overnight butterfly is smaller than 0.01
@@ -469,9 +470,9 @@ subtest 'butterfly markup' => sub {
                 RR_25 => 0.012,
                 BF_25 => 0.009,
             }});
-    $debug_information = {};
     my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    $slope = $pe->theo_probability;
+    $debug_information = $pe->debug_info;
+    $pe->_risk_markup;
     ok !exists $debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup will not be applied if the overnight butterfly is smaller than 0.01';
     $module->unmock('_get_market_rr_bf');
 
@@ -498,17 +499,17 @@ subtest 'butterfly markup' => sub {
                 }
             },
         };
-    $debug_information = {};
     $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    $slope = $pe->theo_probability;
+    $pe->_risk_markup;
+    $debug_information = $pe->debug_info;
     ok !exists $debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup will not be applied if there is no overnight smile on the volatility surface';
 
     # no butterfly markup if not an overnight contract.
     $pp->{market_data} = $market_data;
     $pp->{date_expiry} = $now->plus_time_interval('2d');
-    $debug_information = {};
     $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    $slope = $pe->theo_probability;
+    $pe->_risk_markup;
+    $debug_information = $pe->debug_info;
     ok !exists $debug_information->{risk_markup}{parameters}{butterfly_markup},      'butterfly markup will not be applied if it is not an overnight contract';
 };
 

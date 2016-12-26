@@ -302,7 +302,7 @@ sub _get_volsurface {
 
     my $underlying = Quant::Framework::Underlying->new({
             symbol           => $self->underlying_symbol,
-            chronicle_reader => $self->chronicle_reder
+            chronicle_reader => $self->chronicle_reader
         }, $self->for_date);
 
     my $class = 'Quant::Framework::VolSurface::Delta';
@@ -634,7 +634,6 @@ sub _calculate {
         my $down_vol = $self->_get_volatility($vol_args);
         $vol_args->{strike} = $strike + $pip_size;
         my $up_vol = $self->_get_volatility($vol_args);
-        $DB::single=1 if not $up_vol;
         my $slope = ($up_vol - $down_vol) / (2 * $pip_size);
         $debug_info{slope_adjustment}{parameters}{slope} = $slope;
         my $base_amount = $contract_type eq 'CALL' ? -1 : 1;
