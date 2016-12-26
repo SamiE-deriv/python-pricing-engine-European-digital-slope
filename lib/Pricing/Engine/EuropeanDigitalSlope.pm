@@ -1,6 +1,8 @@
 package Pricing::Engine::EuropeanDigitalSlope;
 
 use 5.010;
+use Moose;
+use Moose::Util::TypeConstraints;
 
 use File::ShareDir ();
 use Storable qw(dclone);
@@ -15,6 +17,9 @@ use Machine::Epsilon;
 use Quant::Framework::Underlying;
 use Quant::Framework::VolSurface::Delta;
 use Quant::Framework::VolSurface::Moneyness;
+
+subtype 'Pricing::Engine::EuropeanDigitalSlope::DateObject', as 'Date::Utility';
+coerce 'Pricing::Engine::EuropeanDigitalSlope::DateObject', from 'Str', via { Date::Utility->new($_) };
 
 =head1 NAME
 
@@ -33,7 +38,7 @@ our $VERSION = '1.21';
   use Pricing::Engine::EuropeanDigitalSlope;
 
   my $now = time;
-  my $proability = Pricing::Engine::EuropeanDigitalSlope::new(
+  my $proability = Pricing::Engine::EuropeanDigitalSlope->new(
       contract_type => 'CALL' # supports CALL, PUT, EXPIRYMISS and EXPIRYRANGE
       underlying_symbol => 'frxUSDJPY',
       spot => 120,
@@ -49,8 +54,7 @@ our $VERSION = '1.21';
       payouttime_code => 0, # boolean. True if the contract payouts at hit, false otherwise
       priced_with => 'numeraire', # numeraire, base or quanto?
       market_data => $market_data, # hash reference of subroutine reference to fetch market data
-      market_convention => $market_convention, # hash reference of subroutine reference to fetch market convention information
-  );
+  )->theo_probability; 
 
 =head1 ATTRIBUTES
 
@@ -154,18 +158,7 @@ $vol = $market_data->{get_volatility}->({delta => 50, from => $from, to => $to},
 my $atm_vol = $market_data->{get_atm_volatility}->({expiry_date => Date::Utility->new});
 $atm_vol = $market_data->{get_atm_volatility}->({days => 7});
 
-=head2 market_convention
-
-A hash reference of subroutine references to fetch market convention.
-
-- get_rollover_time: Rollover time is of which a volsurface is expected to rollover to the next trading day. Expects a date as input. Returns Date::Utility object of the rollover time.
-
-my $rollover_time = $market_data->{get_rollover_time}->(Date::Utility->new);
-
 =cut
-
-# required for now since market data and convention are still
-# very much intact to BOM code
 
 =head2 debug_information
 
@@ -216,31 +209,59 @@ Required arguments for this engine to work.
 
 sub required_args {
     return [
-        qw(for_date volsurface volsurface_recorded_date contract_type spot strikes date_start date_pricing 
+        qw(for_date volsurface volsurface_recorded_date contract_type spot strikes vol date_start date_pricing 
         date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol 
-        market_convention chronicle_reader)
+        chronicle_reader)
     ];
 }
 
+has [ qw(volsurface volsurface_recorded_date contract_type spot strikes vol
+    discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol 
+    chronicle_reader) ] => (
+    is       => 'ro',
+    required => 1,
+);
+
+has for_date => (
+    is => 'ro',
+);
+
+has [qw(date_start date_pricing date_expiry)] => (
+    is       => 'ro',
+    isa      => 'Pricing::Engine::EuropeanDigitalSlope::DateObject',
+    required => 1,
+    coerce   => 1,
+);
+
+has debug_info => (
+    is      => 'rw',
+    default => sub { {} },
+);
+
+has error => (
+    is       => 'rw',
+    init_arg => undef,
+    default  => '',
+);
+
 sub _validate {
-    my $args = shift;
-    my $debug_info = shift;
+    my $self = shift;
 
-    my $contract_type = $args->{contract_type};
+    my $contract_type = $self->contract_type;
     unless ($supported_types->{$contract_type}) {
-        $debug_info->{error} = 'Unsupported contract type [' . $contract_type . '] for ' . __PACKAGE__;
+        $self->error('Unsupported contract type [' . $contract_type . '] for ' . __PACKAGE__);
     }
 
-    my @strikes = @{$args->{strikes}};
+    my @strikes = @{$self->strikes};
     my $err     = 'Barrier error for contract type [' . $contract_type . ']';
-    if (_two_barriers($args)) {
-        $debug_info->{error} = $err if @strikes != 2;
+    if ($self->_two_barriers) {
+        $self->error($err) if @strikes != 2;
     } else {
-        $debug_info->{error} = $err if @strikes != 1;
+        $self->error($err) if @strikes != 1;
     }
 
-    if ($args->{date_expiry}->is_before($args->{date_start})) {
-        $debug_info->{error} = 'Date expiry is before date start';
+    if ($self->date_expiry->is_before($self->date_start)) {
+        $self->error('Date expiry is before date start');
     }
 }
 
@@ -251,12 +272,11 @@ Final probability of the contract.
 =cut
 
 sub theo_probability {
-    my $args = shift;
-    my $debug_info = shift;
+    my $self = shift;
 
-    _validate($args, $debug_info);
+    $self->_validate;
 
-    my $probability = _bs_probability($args, $debug_info) + _risk_markup($args, $debug_info);
+    my $probability = $self->_bs_probability + $self->_risk_markup;
 
     return max(0, min(1, $probability));
 }
@@ -268,32 +288,31 @@ BlackScholes probability.
 =cut
 
 sub _bs_probability {
-    my $args = shift;
-    my $debug_info = shift;
+    my $self = shift;
 
-    _validate($args, $debug_info);
+    $self->_validate;
 
-    return 1 if $debug_info->{error};
-    my $result = max(0, min(1, _calculate_probability($args, {}, $debug_info)));
+    return 1 if $self->error;
+    my $result = max(0, min(1, $self->_calculate_probability({})));
     return $result;
 }
 
 sub _get_volsurface {
-    my $args = shift;
+    my $self = shift;
 
     my $underlying = Quant::Framework::Underlying->new({
-            symbol           => $args->{underlying_symbol},
-            chronicle_reader => $args->{chronicle_reder}
-        }, $args->{for_date});
+            symbol           => $self->underlying_symbol,
+            chronicle_reader => $self->chronicle_reder
+        }, $self->for_date);
 
     my $class = 'Quant::Framework::VolSurface::Delta';
     $class = 'Quant::Framework::VolSurface::Moneyness' if $underlying->volatility_surface_type eq 'moneyness';
 
     return $class->new({
             underlying => $underlying,
-            surface    => $args->{volsurface},
-            recorded_date => $args->{volsurface_recorded_date},
-            chronicle_reader => $args->{chronicle_reader},
+            surface    => $self->volsurface,
+            recorded_date => $self->volsurface_recorded_date,
+            chronicle_reader => $self->chronicle_reader,
             type => $underlying->volatility_surface_type,
         });
 }
@@ -305,67 +324,66 @@ Risk markup imposed by this engine.
 =cut
 
 sub _risk_markup {
-    my $args = shift;
-    my $debug_info = shift;
+    my $self = shift;
 
-    return 0 if $debug_info->{error};
+    return 0 if $self->error;
 
-    my $underlying_config = _underlying_config($args);
+    my $underlying_config = $self->_underlying_config;
     my $market        = $underlying_config->{market};
     my $market_markup_config = $markup_config->{$market};
-    my $is_intraday   = _is_intraday($args);
+    my $is_intraday   = $self->_is_intraday;
 
     my $risk_markup = 0;
     if ($market_markup_config->{'traded_market_markup'}) {
         # risk_markup is zero for forward_starting contracts due to complaints from Australian affiliates.
-        return $risk_markup if (_is_forward_starting($args));
+        return $risk_markup if ($self->_is_forward_starting);
 
-        my %greek_params = %{_pricing_args($args)};
+        my %greek_params = %{$self->_pricing_args};
 
-        my $vol_args = _get_vol_expiry($args);
-        $greek_params{vol} = _get_atm_volatility($args, $vol_args);
+        my $vol_args = $self->_get_vol_expiry;
+        $greek_params{vol} = $self->_get_atm_volatility($vol_args);
 
         # vol_spread_markup
-        my $spread_type = _is_atm_contract($args) ? 'atm' : 'max';
-        my $vol_spread = _get_spread($args, {
+        my $spread_type = $self->_is_atm_contract ? 'atm' : 'max';
+        my $vol_spread = $self->_get_spread( {
             sought_point => $spread_type,
-            day          => _timeindays($args)
+            day          => $self->_timeindays
         });
 
-        my $bs_vega_formula   = _greek_formula_for('vega', $args->{contract_type});
+        my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
         my $bs_vega           = abs($bs_vega_formula->(_to_array(\%greek_params)));
         my $vol_spread_markup = min($vol_spread * $bs_vega, 0.7);
         $risk_markup += $vol_spread_markup;
-        $debug_info->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
+        $self->debug_info->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
 
         # spot_spread_markup
         if (not $is_intraday) {
-            my $underlying_config = _underlying_config($args);
+            my $underlying_config = $self->_underlying_config;
             my $spot_spread_size   = $underlying_config->{spot_spread_size} // 50;
             my $spot_spread_base   = $spot_spread_size * $underlying_config->{pip_size};
-            my $bs_delta_formula   = _greek_formula_for('delta', $args->{contract_type});
+            my $bs_delta_formula   = _greek_formula_for('delta', $self->contract_type);
             my $bs_delta           = abs($bs_delta_formula->(_to_array(\%greek_params)));
             my $spot_spread_markup = max(0, min($spot_spread_base * $bs_delta, 0.01));
             $risk_markup += $spot_spread_markup;
-            $debug_info->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
+            $self->debug_info->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
         }
 
         # Generally for indices and stocks the minimum available tenor for smile is 30 days.
         # We use this to price short term contracts, so adding a 5% markup for the volatility uncertainty.
-        if ($market_markup_config->{smile_uncertainty_markup} and _timeindays($args) < 7 and not _is_atm_contract($args)) {
+        if ($market_markup_config->{smile_uncertainty_markup} and $self->_timeindays < 7 and not $self->_is_atm_contract) {
             my $smile_uncertainty_markup = 0.05;
             $risk_markup += $smile_uncertainty_markup;
-            $debug_info->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
+            $self->debug_info->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
         }
 
         # This is added for the high butterfly condition where the overnight butterfly is higher than threshold (0.01),
         # We add the difference between then original probability and adjusted butterfly probability as markup.
-        if ($market_markup_config->{'butterfly_markup'} and _timeindays($args) <= _get_overnight_tenor($args)) {
+        if ($market_markup_config->{'butterfly_markup'} and $self->_timeindays <= $self->_get_overnight_tenor) {
             my $butterfly_cutoff = 0.01;
-            my $original_surface = _get_volsurface($args)->surface;
+            my $original_surface = $self->_get_volsurface->surface;
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
-            my $market_rr_bf     = _get_market_rr_bf($args, $first_term);
-            if ($first_term == _get_overnight_tenor($args) and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
+            my $market_rr_bf     = $self->_get_market_rr_bf($first_term);
+            if ($first_term == $self->_get_overnight_tenor and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
                 my $original_bf = $market_rr_bf->{BF_25};
                 my $original_rr = $market_rr_bf->{RR_25};
                 my ($atm, $c25, $c75) = map { $original_surface->{$first_term}{smile}{$_} } qw(50 25 75);
@@ -375,14 +393,14 @@ sub _risk_markup {
                 $cloned_surface_data->{$first_term}{smile}{25} = $c25_mod;
                 $cloned_surface_data->{$first_term}{smile}{75} = $c75_mod;
                 my $vol_args = {
-                    strike => _two_barriers($args) ? $args->{spot} : $args->{strikes}->[0],
-                    %{_get_vol_expiry($args)},
+                    strike => $self->_two_barriers ? $self->spot : $self->strikes->[0],
+                    %{$self->_get_vol_expiry},
                 };
-                my $vol_after_butterfly_adjustment = _get_volatility($args, $vol_args, $cloned_surface_data);
-                my $butterfly_adjusted_prob = _calculate_probability($args, {vol => $vol_after_butterfly_adjustment}, $debug_info);
-                my $butterfly_markup = min(0.1, abs(_bs_probability($args, $debug_info) - $butterfly_adjusted_prob));
+                my $vol_after_butterfly_adjustment = $self->_get_volatility($vol_args, $cloned_surface_data);
+                my $butterfly_adjusted_prob = $self->_calculate_probability({vol => $vol_after_butterfly_adjustment});
+                my $butterfly_markup = min(0.1, abs($self->_bs_probability - $butterfly_adjusted_prob));
                 $risk_markup += $butterfly_markup;
-                $debug_info->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
+                $self->debug_info->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
             }
         }
 
@@ -390,7 +408,7 @@ sub _risk_markup {
         $risk_markup /= 2;
     }
 
-    $debug_info->{risk_markup}{amount} = $risk_markup;
+    $self->debug_info->{risk_markup}{amount} = $risk_markup;
 
     return $risk_markup;
 }
@@ -398,14 +416,14 @@ sub _risk_markup {
 ## PRIVATE ##
 
 sub _underlying_config {
-    my $args = shift;
-    return Finance::Asset->instance->get_parameters_for($args->{underlying_symbol});
+    my $self = shift;
+    return Finance::Asset->instance->get_parameters_for($self->underlying_symbol);
 }
 
 sub _timeindays {
-    my $args = shift;
+    my $self = shift;
 
-    my $ind = ($args->{date_expiry}->epoch - $args->{date_start}->epoch) / 86400;
+    my $ind = ($self->date_expiry->epoch - $self->date_start->epoch) / 86400;
     # Preventing duration to go to zero when date_pricing == date_expiry
     # Zero duration will cause pricing calculation error
     # Capping duration at 730 days
@@ -416,167 +434,167 @@ sub _timeindays {
 }
 
 sub _timeinyears {
-    my $args = shift;
-    return _timeindays($args) / 365;
+    my $self = shift;
+    return $self->_timeindays / 365;
 }
 
 sub _is_forward_starting {
-    my $args = shift;
+    my $self = shift;
     # 5 seconds is used as the threshold.
     # if pricing takes more than that, we are in trouble.
-    return ($args->{date_start}->epoch - $args->{date_pricing}->epoch > 5) ? 1 : 0;
+    return ($self->date_start->epoch - $self->date_pricing->epoch > 5) ? 1 : 0;
 }
 
 sub _two_barriers {
-    my $args = shift;
-    return (grep { $args->{contract_type} eq $_ } qw(EXPIRYMISS EXPIRYRANGE)) ? 1 : 0;
+    my $self = shift;
+    return (grep { $self->contract_type eq $_ } qw(EXPIRYMISS EXPIRYRANGE)) ? 1 : 0;
 }
 
 sub _is_intraday {
-    my $args = shift;
-    return (_timeindays($args) > 1) ? 0 : 1;
+    my $self = shift;
+    return ($self->_timeindays > 1) ? 0 : 1;
 }
 
 sub _is_atm_contract {
-    my $args = shift;
-    return ($args->{_two_barriers} or $args->{spot} != $args->{strikes}->[0]) ? 0 : 1;
+    my $self = shift;
+    return ($self->_two_barriers or $self->spot != $self->strikes->[0]) ? 0 : 1;
 }
 
 sub _calculate_probability {
-    my ($args, $modified, $debug_info) = @_;
+    my ($self, $modified) = @_;
 
-    my $contract_type = delete $modified->{contract_type} || $args->{contract_type};
+    my $contract_type = delete $modified->{contract_type} || $self->contract_type;
 
     my $probability;
     if ($contract_type eq 'EXPIRYMISS') {
-        $probability = _two_barrier_probability($args, $modified, $debug_info);
+        $probability = $self->_two_barrier_probability($modified);
     } elsif ($contract_type eq 'EXPIRYRANGE') {
-        my $discounted_probability = exp(-$args->{discount_rate} * _timeinyears($args));
-        $debug_info->{discounted_probability} = $discounted_probability;
-        $probability = $discounted_probability - _two_barrier_probability($args, $modified, $debug_info);
+        my $discounted_probability = exp(-$self->discount_rate * $self->_timeinyears);
+        $self->debug_info->{discounted_probability} = $discounted_probability;
+        $probability = $discounted_probability - $self->_two_barrier_probability($modified, $self->debug_info);
     } else {
-        my $priced_with = $args->{priced_with};
-        my $params      = _pricing_args($args);
+        my $priced_with = $self->priced_with;
+        my $params      = $self->_pricing_args;
         $params->{$_} = $modified->{$_} foreach keys %$modified;
 
-        my (%debug_information, $calc_parameters);
+        my (%debug_info, $calc_parameters);
         if ($priced_with eq 'numeraire') {
-            ($probability, $calc_parameters) = _calculate($args, $contract_type, $params);
-            $debug_information{base_probability}{amount}     = $probability;
-            $debug_information{base_probability}{parameters} = $calc_parameters;
+            ($probability, $calc_parameters) = $self->_calculate($contract_type, $params);
+            $debug_info{base_probability}{amount}     = $probability;
+            $debug_info{base_probability}{parameters} = $calc_parameters;
         } elsif ($priced_with eq 'quanto') {
-            $params->{mu} = $args->{r_rate} - $args->{q_rate};
-            ($probability, $calc_parameters) = _calculate($args, $contract_type, $params);
-            $debug_information{base_probability}{amount}     = $probability;
-            $debug_information{base_probability}{parameters} = $calc_parameters;
+            $params->{mu} = $self->r_rate - $self->q_rate;
+            ($probability, $calc_parameters) = $self->_calculate($contract_type, $params);
+            $debug_info{base_probability}{amount}     = $probability;
+            $debug_info{base_probability}{parameters} = $calc_parameters;
         } elsif ($priced_with eq 'base') {
             my %cloned_params = %$params;
-            $cloned_params{mu}            = $args->{r_rate} - $args->{q_rate};
-            $cloned_params{discount_rate} = $args->{r_rate};
+            $cloned_params{mu}            = $self->r_rate - $self->q_rate;
+            $cloned_params{discount_rate} = $self->r_rate;
             my $numeraire_prob;
-            ($numeraire_prob, $calc_parameters) = _calculate($args, $contract_type, \%cloned_params);
-            $debug_information{base_probability}{parameters}{numeraire_probability}{amount}     = $numeraire_prob;
-            $debug_information{base_probability}{parameters}{numeraire_probability}{parameters} = $calc_parameters;
+            ($numeraire_prob, $calc_parameters) = $self->_calculate($contract_type, \%cloned_params);
+            $debug_info{base_probability}{parameters}{numeraire_probability}{amount}     = $numeraire_prob;
+            $debug_info{base_probability}{parameters}{numeraire_probability}{parameters} = $calc_parameters;
             my $vanilla_formula          = _bs_formula_for('vanilla_' . $contract_type);
             my $base_vanilla_probability = $vanilla_formula->(_to_array($params));
-            $debug_information{base_probability}{parameters}{base_vanilla_probability}{amount}     = $base_vanilla_probability;
-            $debug_information{base_probability}{parameters}{base_vanilla_probability}{parameters} = $params;
+            $debug_info{base_probability}{parameters}{base_vanilla_probability}{amount}     = $base_vanilla_probability;
+            $debug_info{base_probability}{parameters}{base_vanilla_probability}{parameters} = $params;
             my $which_way = $contract_type eq 'CALL' ? 1 : -1;
             my $strike = $params->{strikes}->[0];
-            $debug_information{base_probability}{parameters}{spot}{amount}   = $args->{spot};
-            $debug_information{base_probability}{parameters}{strike}{amount} = $strike;
-            $probability = ($numeraire_prob * $strike + $base_vanilla_probability * $which_way) / $args->{spot};
-            $debug_information{base_probability}{amount} = $probability;
+            $debug_info{base_probability}{parameters}{spot}{amount}   = $self->spot;
+            $debug_info{base_probability}{parameters}{strike}{amount} = $strike;
+            $probability = ($numeraire_prob * $strike + $base_vanilla_probability * $which_way) / $self->spot;
+            $debug_info{base_probability}{amount} = $probability;
         } else {
-            $debug_info->{error} = 'Unrecognized priced_with[' . $priced_with . ']';
+            $self->error('Unrecognized priced_with[' . $priced_with . ']');
             $probability = 1;
         }
 
-        $debug_info->{$contract_type} = \%debug_information;
+        $self->debug_info->{$contract_type} = \%debug_info;
     }
 
     return $probability;
 }
 
 sub _two_barrier_probability {
-    my ($args, $modified, $debug_info) = @_;
+    my ($self, $modified) = @_;
 
-    my ($low_strike, $high_strike) = sort { $a <=> $b } @{$args->{strikes}};
+    my ($low_strike, $high_strike) = sort { $a <=> $b } @{$self->strikes};
 
-    my $vol_args = _get_vol_expiry($args);
+    my $vol_args = $self->_get_vol_expiry;
     $vol_args->{strike} = $high_strike;
-    my $high_vol  = _get_volatility($args, $vol_args);
-    my $call_prob = _calculate_probability($args, {
+    my $high_vol  = $self->_get_volatility($vol_args);
+    my $call_prob = $self->_calculate_probability({
         contract_type => 'CALL',
         strikes       => [$high_strike],
         vol           => $high_vol,
         %$modified
-    }, $debug_info);
+    } );
 
     $vol_args->{strike} = $low_strike;
-    my $low_vol  = _get_volatility($args, $vol_args);
-    my $put_prob = _calculate_probability($args, { 
+    my $low_vol  = $self->_get_volatility($vol_args);
+    my $put_prob = $self->_calculate_probability({ 
         contract_type => 'PUT',
         strikes       => [$low_strike],
         vol           => $low_vol,
         %$modified
-    }, $debug_info);
+    });
 
     return $call_prob + $put_prob;
 }
 
 sub _get_overnight_tenor {
-    my $args = shift;
+    my $self = shift;
 
-    return _get_volsurface($args)->_ON_day;
+    return $self->_get_volsurface->_ON_day;
 }
 
 sub _get_vol_at_strike {
-    my $args = shift;
+    my $self = shift;
 
     my $vol_args     = {
-        strike => $args->{strikes}->[0],
-        q_rate => $args->{q_rate},
-        r_rate => $args->{r_rate},
-        spot   => $args->{spot},
-        from   => $args->{date_start},
-        to     => $args->{date_expiry},
+        strike => $self->strikes->[0],
+        q_rate => $self->q_rate,
+        r_rate => $self->r_rate,
+        spot   => $self->spot,
+        from   => $self->date_start,
+        to     => $self->date_expiry,
     };
 
-    if (scalar $args->{strikes} == 2 ) {
-        $vol_args->{strike} = $args->{spot};
+    if (scalar $self->strikes == 2 ) {
+        $vol_args->{strike} = $self->spot;
     }
 
-    return _get_volsurface($args)->get_volatility($vol_args);
+    return $self->_get_volsurface->get_volatility($vol_args);
 }
 
 sub _get_spread {
-    my ($args, $spread_args) = @_;
+    my ($self, $spread_args) = @_;
 
-    return _get_volsurface($args)->get_spread($spread_args);
+    return $self->_get_volsurface->get_spread($spread_args);
 }
 
 sub _get_market_rr_bf {
-    my $args = shift;
+    my $self = shift;
     my $first_term = shift;
     
-    return _get_volsurface($args)->get_market_rr_bf($first_term);
+    return $self->_get_volsurface->get_market_rr_bf($first_term);
 }
 
 sub _get_atm_volatility {
-    my $args = shift;
+    my $self = shift;
     my $vol_args = shift;
 
     $vol_args->{delta} = 50;
-    return _get_volatility($args, $vol_args);
+    return $self->_get_volatility($vol_args);
 }
 
 sub _get_volatility {
-    my $args = shift;
+    my $self = shift;
     my $vol_args = shift;
     my $surface_data = shift;
 
-    my $volsurface = _get_volsurface($args);
+    my $volsurface = $self->_get_volsurface;
     my $vol;
     if ($surface_data) {
         my $new_volsurface_obj = $volsurface->clone({surface_data => $surface_data});
@@ -589,47 +607,48 @@ sub _get_volatility {
 }
 
 sub _calculate {
-    my ($args, $contract_type, $params) = @_;
+    my ($self, $contract_type, $params) = @_;
 
-    my %debug_information;
+    my %debug_info;
     my $bs_formula     = _bs_formula_for($contract_type);
     my @pricing_args   = _to_array($params);
     my $bs_probability = $bs_formula->(@pricing_args);
-    $debug_information{bs_probability}{amount}     = $bs_probability;
-    $debug_information{bs_probability}{parameters} = $params;
+    $debug_info{bs_probability}{amount}     = $bs_probability;
+    $debug_info{bs_probability}{parameters} = $params;
 
     my $slope_adjustment = 0;
-    unless (_is_forward_starting($args)) {
+    unless ($self->_is_forward_starting) {
         my $vanilla_vega_formula = _greek_formula_for('vega', 'vanilla_' . $contract_type);
         my $vanilla_vega = $vanilla_vega_formula->(@pricing_args);
-        $debug_information{slope_adjustment}{parameters}{vanilla_vega}{amount}     = $vanilla_vega;
-        $debug_information{slope_adjustment}{parameters}{vanilla_vega}{parameters} = $params;
+        $debug_info{slope_adjustment}{parameters}{vanilla_vega}{amount}     = $vanilla_vega;
+        $debug_info{slope_adjustment}{parameters}{vanilla_vega}{parameters} = $params;
         my $strike   = $params->{strikes}->[0];
         my $vol_args = {
-            spot   => $args->{spot},
-            q_rate => $args->{q_rate},
-            r_rate => $args->{r_rate},
-            %{_get_vol_expiry($args)}};
-        my $pip_size = _underlying_config($args)->{pip_size};
+            spot   => $self->spot,
+            q_rate => $self->q_rate,
+            r_rate => $self->r_rate,
+            %{$self->_get_vol_expiry}};
+        my $pip_size = $self->_underlying_config->{pip_size};
         # Move by pip size either way.
         $vol_args->{strike} = $strike - $pip_size;
-        my $down_vol = _get_volatility($args, $vol_args);
+        my $down_vol = $self->_get_volatility($vol_args);
         $vol_args->{strike} = $strike + $pip_size;
-        my $up_vol = _get_volatility($args, $vol_args);
+        my $up_vol = $self->_get_volatility($vol_args);
+        $DB::single=1 if not $up_vol;
         my $slope = ($up_vol - $down_vol) / (2 * $pip_size);
-        $debug_information{slope_adjustment}{parameters}{slope} = $slope;
+        $debug_info{slope_adjustment}{parameters}{slope} = $slope;
         my $base_amount = $contract_type eq 'CALL' ? -1 : 1;
         $slope_adjustment = $base_amount * $vanilla_vega * $slope;
 
-        if (_get_first_tenor_on_surface($args) > 7 and _is_intraday($args)) {
+        if ($self->_get_first_tenor_on_surface > 7 and $self->_is_intraday) {
             $slope_adjustment = max(-0.03, min(0.03, $slope_adjustment));
         }
-        $debug_information{slope_adjustment}{amount} = $slope_adjustment;
+        $debug_info{slope_adjustment}{amount} = $slope_adjustment;
     }
 
     my $prob = $bs_probability + $slope_adjustment;
 
-    return ($prob, \%debug_information);
+    return ($prob, \%debug_info);
 }
 
 sub _bs_formula_for {
@@ -645,12 +664,12 @@ sub _greek_formula_for {
 }
 
 sub _pricing_args {
-    my $args = shift;
-    my %result = map { $_ => $args->{$_} } @{$formula_args};
+    my $self = shift;
+    my %result = map { $_ => $self->$_ } @{$formula_args};
 
     #timeinyears does not exist in input parameters, we have to calculate it
-    $result{_timeinyears} = _timeinyears($args);
-    $result{vol} = $args->{vol};
+    $result{_timeinyears} = $self->_timeinyears;
+    $result{vol} = $self->vol;
 
     return \%result;
 }
@@ -662,19 +681,19 @@ sub _to_array {
 }
 
 sub _get_first_tenor_on_surface {
-    my $args = shift;
+    my $self = shift;
 
-    my $original_surface = $args->{volsurface}->{$args->{underlying_symbol}};
+    my $original_surface = $self->volsurface;
     my $first_term = (sort { $a <=> $b } keys %$original_surface)[0];
     return $first_term;
 }
 
 sub _get_vol_expiry {
-    my $args = shift;
+    my $self = shift;
 
     return {
-        from => $args->{date_start},
-        to   => $args->{date_expiry}
+        from => $self->date_start,
+        to   => $self->date_expiry
     };
 }
 
@@ -690,4 +709,6 @@ You can find documentation for this module with the perldoc command.
 
 =cut
 
+no Moose;
+__PACKAGE__->meta->make_immutable;
 1;
