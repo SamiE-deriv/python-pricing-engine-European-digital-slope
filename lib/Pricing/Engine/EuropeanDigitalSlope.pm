@@ -9,7 +9,6 @@ use Storable qw(dclone);
 use List::Util qw(min max sum);
 use YAML::XS qw(LoadFile);
 use Finance::Asset;
-use Math::Function::Interpolator;
 use Math::Business::BlackScholes::Binaries;
 use Math::Business::BlackScholes::Binaries::Greeks::Vega;
 use Math::Business::BlackScholes::Binaries::Greeks::Delta;
@@ -38,7 +37,7 @@ our $VERSION = '1.21';
   use Pricing::Engine::EuropeanDigitalSlope;
 
   my $now = time;
-  my $proability = Pricing::Engine::EuropeanDigitalSlope->new(
+  my $probability = Pricing::Engine::EuropeanDigitalSlope->new(
       contract_type => 'CALL' # supports CALL, PUT, EXPIRYMISS and EXPIRYRANGE
       underlying_symbol => 'frxUSDJPY',
       spot => 120,
@@ -53,7 +52,6 @@ our $VERSION = '1.21';
       q_rate => 0.0021,
       payouttime_code => 0, # boolean. True if the contract payouts at hit, false otherwise
       priced_with => 'numeraire', # numeraire, base or quanto?
-      market_data => $market_data, # hash reference of subroutine reference to fetch market data
   )->theo_probability; 
 
 =head1 ATTRIBUTES
@@ -111,64 +109,6 @@ The time of which the contract is priced. Is a Date::Utility object.
 =head2 date_expiry
 
 The expiration time of the contract. Is a Date::Utility object.
-
-=cut
-
-=head2 market_data
-
-A hash reference of subroutine references to fetch market data.
-
-- get_vol_spread: Expects a underlying_symbol, spread_type and timeindays as input. Returns a vol spread number.
-
-my $vol_spread = $market_data->{get_vol_spread}->('atm', 7);
-
-- get_volsurface_data: Expects nothing as input. Returns a hash reference of volsurface data.
-
-my $surface_data = $market_data->{get_volsurface_data}->();
-
-- get_market_rr_bf: Expects timeindays as input. Returns a hash reference of 25 risk reversal and 25 butterfly information.
-
-my $market_rr_bf = $market_data->{get_market_rr_bf}->(7);
-
-- get_volatility: Expects a hash refernce of volatility argument as input. Optional input: surface data. Returns a volatility number.
-
-my $vol = $market_data->{get_volatility}->({delta => 50, from => $from, to => $to});
-my $surface_data = {
-    7 => {
-        smile => {
-            75 => 0.1,
-            50 => 0.11,
-            25 => 0.25
-        }
-    },
-    14 => {
-        smile => {
-            75 => 0.12,
-            50 => 0.21,
-            25 => 0.21
-        }
-    },
-};
-
-# To get volatility with a modified surface.
-$vol = $market_data->{get_volatility}->({delta => 50, from => $from, to => $to}, $surface_data);
-
-- get_atm_volatility: Expects a hash reference as input. Returns a volatility number.
-
-my $atm_vol = $market_data->{get_atm_volatility}->({expiry_date => Date::Utility->new});
-$atm_vol = $market_data->{get_atm_volatility}->({days => 7});
-
-=cut
-
-=head2 debug_information
-
-Logging output.
-
-=cut
-
-=head2 error
-
-Error thrown while calculating probability or markups.
 
 =cut
 
