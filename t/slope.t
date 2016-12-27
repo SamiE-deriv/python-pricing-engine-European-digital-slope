@@ -109,7 +109,7 @@ sub _get_params {
 subtest 'CALL probability' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    my $numeraire = $pe->_bs_probability;
+    my $numeraire = $pe->_base_probability;
     ok looks_like_number($numeraire), 'probability looks like number';
     ok $numeraire <= 1, 'probability <= 1';
     ok $numeraire >= 0, 'probability >= 0';
@@ -131,7 +131,7 @@ subtest 'CALL probability' => sub {
 
     $pp = _get_params('CALL', 'quanto');
     $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-    $quanto = $pe->_bs_probability;
+    $quanto = $pe->_base_probability;
     ok looks_like_number($quanto), 'probability looks like number';
     ok $quanto <= 1, 'probability <= 1';
     ok $quanto >= 0, 'probability >= 0';
@@ -153,7 +153,7 @@ subtest 'CALL probability' => sub {
     $pp = _get_params('CALL', 'base');
     $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     $debug = $pe->debug_info;
-    $base = $pe->_bs_probability;
+    $base = $pe->_base_probability;
     ok looks_like_number($base), 'probability looks like number';
     ok $base <= 1, 'probability <= 1';
     ok $base >= 0, 'probability >= 0';
@@ -180,7 +180,7 @@ subtest 'EXPIRYMISS probability' => sub {
     my $debug = {};
     $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     $debug = $pe->debug_info;
-    my $numeraire = $pe->_bs_probability;
+    my $numeraire = $pe->_base_probability;
     ok looks_like_number($numeraire), 'probability looks like number';
     ok $numeraire <= 1, 'probability <= 1';
     ok $numeraire >= 0, 'probability >= 0';
@@ -219,7 +219,7 @@ subtest 'EXPIRYRANGE probability' => sub {
     my $pp = _get_params('EXPIRYRANGE', 'numeraire');
     $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     my $debug_information = $pe->debug_info;
-    my $numeraire = $pe->_bs_probability;
+    my $numeraire = $pe->_base_probability;
     ok looks_like_number($numeraire), 'probability looks like number';
     ok $numeraire <= 1, 'probability <= 1';
     ok $numeraire >= 0, 'probability >= 0';
@@ -262,7 +262,7 @@ subtest 'unsupported contract_type' => sub {
         $pp->{strikes} = [100];
         $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         my $debug = $pe->debug_info;
-        my $slope_bs = $pe->_bs_probability;
+        my $slope_bs = $pe->_base_probability;
         is $slope_bs, 1, 'probabilility is 1';
         ok $pe->error, 'has error';
         like $pe->error, qr/Unsupported contract type/, 'correct error message';
@@ -283,10 +283,10 @@ subtest 'unregconized priced_with' => sub {
         my $pp = _get_params('CALL', 'unregconized');
         $pp->{discount_rate} = 0.01;
         my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        my $slope_theo = $pe->_bs_probability;
+        my $slope_theo = $pe->_base_probability;
         is $slope_theo,    1,                            'probabilility is 1';
 
-        my $slope_ask = $pe->theo_probability;
+        my $slope_ask = $pe->_bs_probability;
         is $slope_ask,       1,                            'probabilility is 1';
         ok $pe->error,             'has error';
         like $pe->error,           qr/Unrecognized priced_with/, 'correct error message';

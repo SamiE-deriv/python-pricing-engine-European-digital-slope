@@ -216,9 +216,18 @@ sub theo_probability {
 
     $self->_validate;
 
-    my $probability = $self->_bs_probability + $self->_risk_markup;
+    my $probability = $self->_base_probability + $self->_risk_markup;
 
     return max(0, min(1, $probability));
+}
+
+sub _base_probability {
+    my $self = shift;
+
+    $self->_validate;
+
+    return 1 if $self->error;
+    return max(0, min(1, $self->_calculate_probability));
 }
 
 =head2 _bs_probability
@@ -233,7 +242,11 @@ sub _bs_probability {
     $self->_validate;
 
     return 1 if $self->error;
-    my $result = max(0, min(1, $self->_calculate_probability({})));
+
+    my $bs_formula = _bs_formula_for($self->contract_type);
+    my $params      = $self->_pricing_args;
+    my $result = max(0, $bs_formula->(_to_array($params)));
+
     return $result;
 }
 
