@@ -40,11 +40,6 @@ $module->mock('_get_volatility', sub {
             98.99999  => 0.1499965,
         );
         
-        if ( not exists $vols{$vol_args->{strike}} ) {
-            return 0.1 if $vol_args->{strike} == 101 * $multiplier;
-            return 0.16 if $vol_args->{strike} == 99 * $multiplier;
-        }
-
         return $multiplier * $vols{$vol_args->{strike}};
     });
 

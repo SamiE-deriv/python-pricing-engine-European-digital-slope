@@ -474,9 +474,7 @@ sub _two_barrier_probability {
 
     my ($low_strike, $high_strike) = sort { $a <=> $b } @{$self->strikes};
 
-    my $vol_args = $self->_get_vol_expiry;
-    $vol_args->{strike} = $high_strike;
-    my $high_vol  = $self->_get_volatility($vol_args);
+    my $high_vol  = $self->vol->{high_barrier_vol};
     my $call_prob = $self->_calculate_probability({
         contract_type => 'CALL',
         strikes       => [$high_strike],
@@ -484,8 +482,7 @@ sub _two_barrier_probability {
         %$modified
     } );
 
-    $vol_args->{strike} = $low_strike;
-    my $low_vol  = $self->_get_volatility($vol_args);
+    my $low_vol  = $self->vol->{low_barrier_vol};
     my $put_prob = $self->_calculate_probability({ 
         contract_type => 'PUT',
         strikes       => [$low_strike],
@@ -500,25 +497,6 @@ sub _get_overnight_tenor {
     my $self = shift;
 
     return $self->_get_volsurface->_ON_day;
-}
-
-sub _get_vol_at_strike {
-    my $self = shift;
-
-    my $vol_args     = {
-        strike => $self->strikes->[0],
-        q_rate => $self->q_rate,
-        r_rate => $self->r_rate,
-        spot   => $self->spot,
-        from   => $self->date_start,
-        to     => $self->date_expiry,
-    };
-
-    if (scalar $self->strikes == 2 ) {
-        $vol_args->{strike} = $self->spot;
-    }
-
-    return $self->_get_volsurface->get_volatility($vol_args);
 }
 
 sub _get_spread {
