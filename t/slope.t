@@ -100,7 +100,6 @@ sub _get_params {
         payouttime_code   => 0,
         contract_type     => $ct,
         underlying_symbol => 'frxEURUSD',
-        market_data       => $market_data,
         volsurface_recorded_date => $now,
         chronicle_reader  => undef,
     };
