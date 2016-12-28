@@ -116,25 +116,31 @@ sub _get_params {
     };
 }
 
-my $pe = Pricing::Engine::EuropeanDigitalSlope->new(_get_params('CALL'));
-is roundnear(0.0001, $pe->probability), 0.4368, 'correct theo probability';
-
-$pe = Pricing::Engine::EuropeanDigitalSlope->new(_get_params('EXPIRYMISS'));
-is roundnear(0.0001, $pe->probability), 1, 'correct theo probability';
-
-$pe = Pricing::Engine::EuropeanDigitalSlope->new(_get_params('EXPIRYRANGE'));
-is roundnear(0.0001, $pe->probability), 0.0011, 'correct theo probability';
+price_check('EXPIRYRANGE', 0.0011);
+price_check('EXPIRYMISS', 1);
+price_check('CALL', 0.4368);
 
 $multiplier = 1.001;
-$pe = Pricing::Engine::EuropeanDigitalSlope->new(_get_params('CALL'));
-is roundnear(0.0001, $pe->probability), 0.4292, 'correct theo probability';
+price_check('EXPIRYRANGE', 0.3747);
+price_check('EXPIRYMISS', 0.627);
+price_check('CALL', 0.4882);
 
 $multiplier = 0.97;
-$pe = Pricing::Engine::EuropeanDigitalSlope->new(_get_params('EXPIRYMISS'));
-is roundnear(0.0001, $pe->probability), 1, 'correct theo probability';
+price_check('EXPIRYRANGE', 0.0408);
+price_check('EXPIRYMISS', 0.9594);
+price_check('CALL', 0.9696);
 
 $multiplier = 0.99;
-$pe = Pricing::Engine::EuropeanDigitalSlope->new(_get_params('EXPIRYRANGE'));
-is roundnear(0.0001, $pe->probability), 0.0011, 'correct theo probability';
+price_check('EXPIRYRANGE', 0.2653);
+price_check('EXPIRYMISS', 0.7358);
+price_check('CALL', 0.0006);
+
+sub price_check {
+    my $type = shift;
+    my $expected = shift;
+
+    my $pe = Pricing::Engine::EuropeanDigitalSlope->new(_get_params($type));
+    is roundnear(0.0001, $pe->probability), $expected, 'correct theo probability';
+}
 
 done_testing();
