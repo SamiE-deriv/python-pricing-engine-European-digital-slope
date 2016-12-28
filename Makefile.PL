@@ -20,6 +20,7 @@ WriteMakefile(
         'Scalar::Util'       => 0,
         'Date::Utility'      => 0,
         'Test::Perl::Critic' => 0,
+        'Format::Util::Numbers' => 0,
     },
     PREREQ_PM => {
         'Storable'                                              => 0,
