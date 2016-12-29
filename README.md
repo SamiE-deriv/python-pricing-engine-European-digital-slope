@@ -53,20 +53,9 @@ Usage:
       q_rate => 0.0021,
       payouttime_code => 0, # boolean. True if the contract payouts at hit, false otherwise
       priced_with => 'numeraire', # numeraire, base or quanto?
-      market_data => $market_data, # hash reference of subroutine reference to fetch market data
-      market_convention => $market_convention, # hash reference of subroutine reference to fetch market convention information
   );
 
-  To get the blackscholes probability for the contract:
-  my $bs_probability = $pe->bs_probability;
-
   To get the theoretical probability for the contract:
-  my $theo_probability    = $pe->theo_probability;
-
-  To get the risk markups for the contract:
-  my $risk_markup    = $pe->risk_markup;
-
-  Final probability
-  my $probability = $pe->probability;
+  my $theo_probability = $pe->theo_probability;
 
 ~~~~
