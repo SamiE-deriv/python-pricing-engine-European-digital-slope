@@ -4,6 +4,8 @@ perl:
     - "5.14.2-thr"
 matrix:
     fast_finish: true
+env:
+    CODECOV_TOKEN: 49470ce5-1a8e-48b1-aa3c-196af4761f4b
 services:
     - redis-server
 addons:
@@ -24,7 +26,7 @@ before_install:
     - /tmp/travis-scripts/redis.sh
     - . /tmp/travis-scripts/setup_perl5lib.sh
     - cpanm -n --installdeps .
-
+    - cpanm --quiet --notest --skip-satisfied Devel::Cover Devel::Cover::Report::Codecov
 install:
     - source /tmp/travis-scripts/devbox_path.sh
     - /tmp/travis-scripts/devbox.sh *.yml
@@ -32,7 +34,8 @@ install:
     - . /tmp/travis-scripts/setup_perl5lib.sh
 
 script:
-  perl Makefile.PL && RELEASE_TESTING=1 make test
+  perl Makefile.PL && RELEASE_TESTING=1 PERL5OPT=-MDevel::Cover make test
 
 after_script:
+    - cover -report codecov
     - /tmp/travis-scripts/wait_for_ssh.sh
