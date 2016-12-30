@@ -1,3 +1,6 @@
+[![Build Status](https://magnum.travis-ci.com/regentmarkets/perl-Pricing-Engine-European-Digital-Slope.svg?token=hW4diZKywb9ZykP5jBev&branch=master)](https://magnum.travis-ci.com/regentmarkets/perl-Pricing-Engine-European-Digital-Slope)
+[![codecov](https://codecov.io/gh/regentmarkets/perl-Pricing-Engine-European-Digital-Slope/branch/master/graph/badge.svg)](https://codecov.io/gh/regentmarkets/perl-Pricing-Engine-European-Digital-Slope)
+
 # perl-Pricing-Engine-European-Digital-Slope
 European Digital options Pricing Engine for Binary.com.
 
