@@ -1,5 +1,5 @@
 params:
-    contract_type     : PUT
+    contract_type     : CALL
     date_start        : 1484290159
     date_expiry       : 1484564565
     date_pricing      : 1484290159
@@ -7,7 +7,7 @@ params:
     spot              : 1.22112
     underlying_symbol : frxEURUSD
     strikes           :
-        - 1.222
+        - 1.2214
     priced_with       : numeraire
     mu                : 0.004
     vol               : 0.01
@@ -48,4 +48,4 @@ params:
                 vol_spread:
                     50: 0.01
         'holidays::holidays':
-result: 0.7797
+result: 0.442
