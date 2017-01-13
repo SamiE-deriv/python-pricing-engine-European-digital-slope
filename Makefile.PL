@@ -3,6 +3,14 @@ use strict;
 use warnings;
 use ExtUtils::MakeMaker;
 
+BEGIN {
+    eval "use File::ShareDir::Install;";
+    $@ and die $@;
+}
+
+use File::ShareDir::Install;
+install_share dist => "share";
+
 WriteMakefile(
     NAME               => 'Pricing::Engine::EuropeanDigitalSlope',
     AUTHOR             => q{Binary.com <support@binary.com>},
@@ -31,6 +39,7 @@ WriteMakefile(
         'Finance::Asset'                                        => 0,
         'Format::Util::Numbers'                                 => 0,
         'JSON'                                                  => 0,
+         'File::ShareDir'                                       => 0,
         'Quant::Framework'                                      => 0,
         'Math::Function::Interpolator'                          => 0,
         'Math::Business::BlackScholes::Binaries'                => 0,
@@ -43,3 +52,9 @@ WriteMakefile(
     },
     clean => {FILES => 'Pricing-Engine-EuropeanDigitalSlope-*'},
 );
+
+{
+package
+MY;
+use File::ShareDir::Install qw(postamble);
+}

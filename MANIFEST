@@ -4,11 +4,19 @@ lib/Pricing/Engine/EuropeanDigitalSlope.pm
 Makefile.PL
 MANIFEST			This list of files
 Pricing-Engine-EuropeanDigitalSlope-1.19.tar.gz
+Pricing-Engine-EuropeanDigitalSlope-1.22.tar.gz
 README
 README.md
+share/test/slope1.yml
+share/test/slope2.yml
+share/test/slope3.yml
+share/test/slope4.yml
+share/test/slope5.yml
+share/test/slope6.yml
 t/00-load.t
 t/manifest.t
 t/pod-coverage.t
 t/pod.t
 t/price_check.t
+t/pricing.t
 t/slope.t
