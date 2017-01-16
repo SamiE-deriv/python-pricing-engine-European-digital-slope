@@ -18,16 +18,14 @@ foreach $file (@docs) {
     my $input = $data->{params};
     my $output = $data->{result};
 
-    $input->{date_start} = Date::Utility->new(0+$input->{date_start});
-    $input->{for_date} = Date::Utility->new(0+$input->{for_datec});
-    $input->{date_pricing} = Date::Utility->new(0+$input->{date_pricing});
-    $input->{volsurface_recorded_date} = Date::Utility->new(0+$input->{volsurface_recorded_date});
+    $_ = Date::Utility->new(0+$_)
+        for (@{$input}{qw/date_start for_date date_pricing volsurface_recorded_date/});
+
     $input->{chronicle_reader} = Data::Chronicle::Reader->new({
             cache_reader => $input->{chronicle_hash},
 
         });
 
-    $DB::single=1;
     my $actual_result = roundnear(0.0001, Pricing::Engine::EuropeanDigitalSlope->new($input)->theo_probability);
     is $actual_result, $output, "pricing result is as expected [ $actual_result vs $output] in $file";
 }

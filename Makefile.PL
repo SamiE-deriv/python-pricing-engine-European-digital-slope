@@ -2,12 +2,6 @@ use 5.006;
 use strict;
 use warnings;
 use ExtUtils::MakeMaker;
-
-BEGIN {
-    eval "use File::ShareDir::Install;";
-    $@ and die $@;
-}
-
 use File::ShareDir::Install;
 install_share dist => "share";
 
