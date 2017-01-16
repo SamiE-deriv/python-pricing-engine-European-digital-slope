@@ -2,8 +2,6 @@ use 5.006;
 use strict;
 use warnings;
 use ExtUtils::MakeMaker;
-use File::ShareDir::Install;
-install_share dist => "share";
 
 WriteMakefile(
     NAME               => 'Pricing::Engine::EuropeanDigitalSlope',
@@ -46,9 +44,3 @@ WriteMakefile(
     },
     clean => {FILES => 'Pricing-Engine-EuropeanDigitalSlope-*'},
 );
-
-{
-package
-MY;
-use File::ShareDir::Install qw(postamble);
-}

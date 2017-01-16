@@ -9,7 +9,8 @@ use Format::Util::Numbers qw(roundnear);
 
 use Pricing::Engine::EuropeanDigitalSlope;
 
-my $dir = File::ShareDir::dist_dir('Pricing-Engine-EuropeanDigitalSlope') . "/test";
+my $dir = __FILE__ =~ s![^/]+$!raw_test_config!r;
+
 opendir(DIR, $dir) or die "cannot open directory";
 @docs = grep(/\.yml$/,readdir(DIR));
 
