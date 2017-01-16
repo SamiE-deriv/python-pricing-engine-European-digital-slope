@@ -2,7 +2,6 @@ use Test::More;
 use Test::Exception;
 use Test::Warnings;
 
-use File::ShareDir ();
 use YAML::XS qw(LoadFile);
 use Date::Utility;
 use Format::Util::Numbers qw(roundnear);

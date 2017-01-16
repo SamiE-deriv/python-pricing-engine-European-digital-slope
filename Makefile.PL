@@ -31,7 +31,6 @@ WriteMakefile(
         'Finance::Asset'                                        => 0,
         'Format::Util::Numbers'                                 => 0,
         'JSON'                                                  => 0,
-         'File::ShareDir'                                       => 0,
         'Quant::Framework'                                      => 0,
         'Math::Function::Interpolator'                          => 0,
         'Math::Business::BlackScholes::Binaries'                => 0,
