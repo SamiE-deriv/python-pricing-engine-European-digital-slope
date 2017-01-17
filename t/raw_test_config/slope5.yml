@@ -1,0 +1,51 @@
+params:
+    contract_type     : PUT
+    date_start        : 1484290159
+    date_expiry       : 1484564565
+    date_pricing      : 1484290159
+    for_date          : 1484290159
+    spot              : 1.22112
+    underlying_symbol : frxEURUSD
+    strikes           :
+        - 1.22119
+    priced_with       : numeraire
+    mu                : 0.004
+    vol               : 0.01
+    payouttime_code   : 0
+    discount_rate     : 0.021
+    q_rate            : 0.031
+    r_rate            : 0.029
+    volsurface        : 
+        1:
+            smile:
+                25: 0.12
+                50: 0.12
+                75: 0.18
+            vol_spread:
+                50: 0.02
+        7:
+            smile:
+                25: 0.17
+                50: 0.13
+                75: 0.14
+            vol_spread:
+                50: 0.01
+    volsurface_recorded_date : 1484290159
+    chronicle_hash:
+        'volatility_surfaces::frxEURUSD':
+            1:
+                smile:
+                    25: 0.19
+                    50: 0.13
+                    75: 0.19
+                vol_spread:
+                    50: 0.02
+            7:
+                smile:
+                    25: 0.18
+                    50: 0.13
+                    75: 0.19
+                vol_spread:
+                    50: 0.02
+        'holidays::holidays':
+result: 0.4713
