@@ -33,10 +33,11 @@ install:
     - /tmp/travis-scripts/devbox.sh *.yml
     - /tmp/travis-scripts/setup_logs.sh
     - . /tmp/travis-scripts/setup_perl5lib.sh
+    - cpanm --quiet --notest --skip-satisfied Dist::Zilla Dist::Zilla::App::Command::cover App::cpm Devel::Cover::Report::Codecov
+    - cpm install -w 2 --mirror=http://cpan.cpantesters.org/ -g $(dzil authordeps --missing)
+    - cpm install -w 2 --mirror=http://cpan.cpantesters.org/  -g $(dzil listdeps --author --missing) || cpanm --quiet --notest --mirror-only --mirror https://binary:L909ZCquy8Yo6h1L@stratopan.com/binary/Binary/master $(dzil listdeps --author --missing)
 
 script:
-  perl Makefile.PL && RELEASE_TESTING=1 PERL5OPT=-MDevel::Cover make test
-
+     - dzil smoke --release --author && dzil cover -test -report codecov && dzil xtest
 after_script:
-    - cover -report codecov
     - /tmp/travis-scripts/wait_for_ssh.sh
