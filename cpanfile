@@ -1,3 +1,4 @@
+requires 'Quant::Framework';
 requires 'Date::Utility';
 requires 'Finance::Asset';
 requires 'List::Util';
