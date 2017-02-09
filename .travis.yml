@@ -30,7 +30,7 @@ before_install:
     #- cpanm --quiet --notest --skip-satisfied Devel::Cover Devel::Cover::Report::Codecov
 install:
     #- source /tmp/travis-scripts/devbox_path.sh
-    #- /tmp/travis-scripts/devbox.sh *.yml
+    - /tmp/travis-scripts/devbox.sh *.yml
     #- /tmp/travis-scripts/setup_logs.sh
     - cpanm --quiet --notest Dist::Zilla Dist::Zilla::App::Command::cover App::cpm Devel::Cover::Report::Codecov
     - cpm install -w 2 --mirror=http://cpan.cpantesters.org/ -g  DBIx::TransactionManager::Distributed  # fix dependencies of Finance::Asset . This line should be removed later
