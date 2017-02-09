@@ -24,10 +24,6 @@ coerce 'Pricing::Engine::EuropeanDigitalSlope::DateObject', from 'Str', via { Da
 
 Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital contracts.
 
-=head1 VERSION
-
-Version 1.22
-
 =cut
 
 our $VERSION = '1.22';
@@ -203,6 +199,7 @@ sub _validate {
     if ($self->date_expiry->is_before($self->date_start)) {
         $self->error('Date expiry is before date start');
     }
+    return;
 }
 
 =head2 theo_probability
