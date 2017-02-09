@@ -34,7 +34,7 @@ our $VERSION = '1.22';
 
   my $now = time;
   my $probability = Pricing::Engine::EuropeanDigitalSlope->new(
-      contract_type => 'CALL' # supports CALL, PUT, EXPIRYMISS and EXPIRYRANGE
+      contract_type => 'CALL', # supports CALL, PUT, EXPIRYMISS and EXPIRYRANGE
       underlying_symbol => 'frxUSDJPY',
       spot => 120,
       strikes => [121], # an array reference of strikes. [$strike1, $strike2] for multiple strikes contracts
@@ -334,9 +334,8 @@ sub _risk_markup {
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
             my $market_rr_bf     = $self->_get_market_rr_bf($first_term);
             if ($first_term == $self->_get_overnight_tenor and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
-                my $original_bf = $market_rr_bf->{BF_25};
                 my $original_rr = $market_rr_bf->{RR_25};
-                my ($atm, $c25, $c75) = map { $original_surface->{$first_term}{smile}{$_} } qw(50 25 75);
+                my ($atm, $c25, undef) = map { $original_surface->{$first_term}{smile}{$_} } qw(50 25 75);
                 my $c25_mod             = $butterfly_cutoff + $atm + 0.5 * $original_rr;
                 my $c75_mod             = $c25 - $original_rr;
                 my $cloned_surface_data = dclone($original_surface);
