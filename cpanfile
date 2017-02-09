@@ -1,4 +1,4 @@
-requires 'Quant::Framework';
+requires 'Quant::Framework', ">= 0.48";
 requires 'Date::Utility';
 requires 'Finance::Asset';
 requires 'List::Util';
