@@ -48,7 +48,7 @@ our $VERSION = '1.22';
       q_rate => 0.0021,
       payouttime_code => 0, # boolean. True if the contract payouts at hit, false otherwise
       priced_with => 'numeraire', # numeraire, base or quanto?
-  )->theo_probability; 
+  )->theo_probability;
 
 =head1 ATTRIBUTES
 
