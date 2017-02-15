@@ -24,13 +24,9 @@ coerce 'Pricing::Engine::EuropeanDigitalSlope::DateObject', from 'Str', via { Da
 
 Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital contracts.
 
-=head1 VERSION
-
-Version 1.22
-
 =cut
 
-our $VERSION = '1.22';
+our $VERSION = '1.23';
 
 =head1 SYNOPSIS
 
@@ -38,7 +34,7 @@ our $VERSION = '1.22';
 
   my $now = time;
   my $probability = Pricing::Engine::EuropeanDigitalSlope->new(
-      contract_type => 'CALL' # supports CALL, PUT, EXPIRYMISS and EXPIRYRANGE
+      contract_type => 'CALL', # supports CALL, PUT, EXPIRYMISS and EXPIRYRANGE
       underlying_symbol => 'frxUSDJPY',
       spot => 120,
       strikes => [121], # an array reference of strikes. [$strike1, $strike2] for multiple strikes contracts
@@ -46,13 +42,13 @@ our $VERSION = '1.22';
       date_pricing => $now, # epoch or Date::Utility object
       date_expiry => $now + 86400, # epoch or Date::Utility object
       mu => 0.001,
-      vol => 0.1, 10% volatility
+      vol => 0.1, # 10% volatility
       discount_rate => 0.001, # payout currency rate
       r_rate => 0.0023,
       q_rate => 0.0021,
       payouttime_code => 0, # boolean. True if the contract payouts at hit, false otherwise
       priced_with => 'numeraire', # numeraire, base or quanto?
-  )->theo_probability; 
+  )->theo_probability;
 
 =head1 ATTRIBUTES
 
@@ -149,18 +145,20 @@ Required arguments for this engine to work.
 
 sub required_args {
     return [
-        qw(for_date volsurface volsurface_recorded_date contract_type spot strikes vol date_start date_pricing 
-        date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol 
-        chronicle_reader)
+        qw(for_date volsurface volsurface_recorded_date contract_type spot strikes vol date_start date_pricing
+            date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
+            chronicle_reader)
     ];
 }
 
-has [ qw(volsurface volsurface_recorded_date contract_type spot strikes vol
-    discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol 
-    chronicle_reader) ] => (
+has [
+    qw(volsurface volsurface_recorded_date contract_type spot strikes vol
+        discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
+        chronicle_reader)
+    ] => (
     is       => 'ro',
     required => 1,
-);
+    );
 
 has for_date => (
     is => 'ro',
@@ -203,6 +201,7 @@ sub _validate {
     if ($self->date_expiry->is_before($self->date_start)) {
         $self->error('Date expiry is before date start');
     }
+    return;
 }
 
 =head2 theo_probability
@@ -244,8 +243,8 @@ sub _bs_probability {
     return 1 if $self->error;
 
     my $bs_formula = _bs_formula_for($self->contract_type);
-    my $params      = $self->_pricing_args;
-    my $result = max(0, $bs_formula->(_to_array($params)));
+    my $params     = $self->_pricing_args;
+    my $result     = max(0, $bs_formula->(_to_array($params)));
 
     return $result;
 }
@@ -256,18 +255,20 @@ sub _get_volsurface {
     my $underlying = Quant::Framework::Underlying->new({
             symbol           => $self->underlying_symbol,
             chronicle_reader => $self->chronicle_reader
-        }, $self->for_date);
+        },
+        $self->for_date
+    );
 
     my $class = 'Quant::Framework::VolSurface::Delta';
     $class = 'Quant::Framework::VolSurface::Moneyness' if $underlying->volatility_surface_type eq 'moneyness';
 
     return $class->new({
-            underlying => $underlying,
-            surface    => $self->volsurface,
-            recorded_date => $self->volsurface_recorded_date,
-            chronicle_reader => $self->chronicle_reader,
-            type => $underlying->volatility_surface_type,
-        });
+        underlying       => $underlying,
+        surface          => $self->volsurface,
+        recorded_date    => $self->volsurface_recorded_date,
+        chronicle_reader => $self->chronicle_reader,
+        type             => $underlying->volatility_surface_type,
+    });
 }
 
 =head2 risk_markup
@@ -281,10 +282,10 @@ sub _risk_markup {
 
     return 0 if $self->error;
 
-    my $underlying_config = $self->_underlying_config;
-    my $market        = $underlying_config->{market};
+    my $underlying_config    = $self->_underlying_config;
+    my $market               = $underlying_config->{market};
     my $market_markup_config = $markup_config->{$market};
-    my $is_intraday   = $self->_is_intraday;
+    my $is_intraday          = $self->_is_intraday;
 
     my $risk_markup = 0;
     if ($market_markup_config->{'traded_market_markup'}) {
@@ -298,7 +299,7 @@ sub _risk_markup {
 
         # vol_spread_markup
         my $spread_type = $self->_is_atm_contract ? 'atm' : 'max';
-        my $vol_spread = $self->_get_spread( {
+        my $vol_spread = $self->_get_spread({
             sought_point => $spread_type,
             day          => $self->_timeindays
         });
@@ -311,7 +312,7 @@ sub _risk_markup {
 
         # spot_spread_markup
         if (not $is_intraday) {
-            my $underlying_config = $self->_underlying_config;
+            my $underlying_config  = $self->_underlying_config;
             my $spot_spread_size   = $underlying_config->{spot_spread_size} // 50;
             my $spot_spread_base   = $spot_spread_size * $underlying_config->{pip_size};
             my $bs_delta_formula   = _greek_formula_for('delta', $self->contract_type);
@@ -337,9 +338,8 @@ sub _risk_markup {
             my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
             my $market_rr_bf     = $self->_get_market_rr_bf($first_term);
             if ($first_term == $self->_get_overnight_tenor and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
-                my $original_bf = $market_rr_bf->{BF_25};
                 my $original_rr = $market_rr_bf->{RR_25};
-                my ($atm, $c25, $c75) = map { $original_surface->{$first_term}{smile}{$_} } qw(50 25 75);
+                my ($atm, $c25, undef) = map { $original_surface->{$first_term}{smile}{$_} } qw(50 25 75);
                 my $c25_mod             = $butterfly_cutoff + $atm + 0.5 * $original_rr;
                 my $c75_mod             = $c25 - $original_rr;
                 my $cloned_surface_data = dclone($original_surface);
@@ -480,10 +480,10 @@ sub _two_barrier_probability {
         strikes       => [$high_strike],
         vol           => $high_vol,
         %$modified
-    } );
+    });
 
     my $low_vol  = $self->vol->{low_barrier_vol};
-    my $put_prob = $self->_calculate_probability({ 
+    my $put_prob = $self->_calculate_probability({
         contract_type => 'PUT',
         strikes       => [$low_strike],
         vol           => $low_vol,
@@ -506,14 +506,14 @@ sub _get_spread {
 }
 
 sub _get_market_rr_bf {
-    my $self = shift;
+    my $self       = shift;
     my $first_term = shift;
-    
+
     return $self->_get_volsurface->get_market_rr_bf($first_term);
 }
 
 sub _get_atm_volatility {
-    my $self = shift;
+    my $self     = shift;
     my $vol_args = shift;
 
     $vol_args->{delta} = 50;
@@ -521,8 +521,8 @@ sub _get_atm_volatility {
 }
 
 sub _get_volatility {
-    my $self = shift;
-    my $vol_args = shift;
+    my $self         = shift;
+    my $vol_args     = shift;
     my $surface_data = shift;
 
     my $volsurface = $self->_get_volsurface;
@@ -599,7 +599,7 @@ sub _pricing_args {
 
     #timeinyears does not exist in input parameters, we have to calculate it
     $result{_timeinyears} = $self->_timeinyears;
-    $result{vol} = $self->vol;
+    $result{vol}          = $self->vol;
 
     return \%result;
 }
