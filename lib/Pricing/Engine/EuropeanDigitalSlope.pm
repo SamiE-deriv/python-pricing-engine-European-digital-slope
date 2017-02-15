@@ -26,7 +26,7 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =cut
 
-our $VERSION = '1.22';
+our $VERSION = '1.23';
 
 =head1 SYNOPSIS
 
@@ -145,18 +145,20 @@ Required arguments for this engine to work.
 
 sub required_args {
     return [
-        qw(for_date volsurface volsurface_recorded_date contract_type spot strikes vol date_start date_pricing 
-        date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol 
-        chronicle_reader)
+        qw(for_date volsurface volsurface_recorded_date contract_type spot strikes vol date_start date_pricing
+            date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
+            chronicle_reader)
     ];
 }
 
-has [ qw(volsurface volsurface_recorded_date contract_type spot strikes vol
-    discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol 
-    chronicle_reader) ] => (
+has [
+    qw(volsurface volsurface_recorded_date contract_type spot strikes vol
+        discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
+        chronicle_reader)
+    ] => (
     is       => 'ro',
     required => 1,
-);
+    );
 
 has for_date => (
     is => 'ro',
@@ -241,8 +243,8 @@ sub _bs_probability {
     return 1 if $self->error;
 
     my $bs_formula = _bs_formula_for($self->contract_type);
-    my $params      = $self->_pricing_args;
-    my $result = max(0, $bs_formula->(_to_array($params)));
+    my $params     = $self->_pricing_args;
+    my $result     = max(0, $bs_formula->(_to_array($params)));
 
     return $result;
 }
@@ -253,18 +255,20 @@ sub _get_volsurface {
     my $underlying = Quant::Framework::Underlying->new({
             symbol           => $self->underlying_symbol,
             chronicle_reader => $self->chronicle_reader
-        }, $self->for_date);
+        },
+        $self->for_date
+    );
 
     my $class = 'Quant::Framework::VolSurface::Delta';
     $class = 'Quant::Framework::VolSurface::Moneyness' if $underlying->volatility_surface_type eq 'moneyness';
 
     return $class->new({
-            underlying => $underlying,
-            surface    => $self->volsurface,
-            recorded_date => $self->volsurface_recorded_date,
-            chronicle_reader => $self->chronicle_reader,
-            type => $underlying->volatility_surface_type,
-        });
+        underlying       => $underlying,
+        surface          => $self->volsurface,
+        recorded_date    => $self->volsurface_recorded_date,
+        chronicle_reader => $self->chronicle_reader,
+        type             => $underlying->volatility_surface_type,
+    });
 }
 
 =head2 risk_markup
@@ -278,10 +282,10 @@ sub _risk_markup {
 
     return 0 if $self->error;
 
-    my $underlying_config = $self->_underlying_config;
-    my $market        = $underlying_config->{market};
+    my $underlying_config    = $self->_underlying_config;
+    my $market               = $underlying_config->{market};
     my $market_markup_config = $markup_config->{$market};
-    my $is_intraday   = $self->_is_intraday;
+    my $is_intraday          = $self->_is_intraday;
 
     my $risk_markup = 0;
     if ($market_markup_config->{'traded_market_markup'}) {
@@ -295,7 +299,7 @@ sub _risk_markup {
 
         # vol_spread_markup
         my $spread_type = $self->_is_atm_contract ? 'atm' : 'max';
-        my $vol_spread = $self->_get_spread( {
+        my $vol_spread = $self->_get_spread({
             sought_point => $spread_type,
             day          => $self->_timeindays
         });
@@ -308,7 +312,7 @@ sub _risk_markup {
 
         # spot_spread_markup
         if (not $is_intraday) {
-            my $underlying_config = $self->_underlying_config;
+            my $underlying_config  = $self->_underlying_config;
             my $spot_spread_size   = $underlying_config->{spot_spread_size} // 50;
             my $spot_spread_base   = $spot_spread_size * $underlying_config->{pip_size};
             my $bs_delta_formula   = _greek_formula_for('delta', $self->contract_type);
@@ -476,10 +480,10 @@ sub _two_barrier_probability {
         strikes       => [$high_strike],
         vol           => $high_vol,
         %$modified
-    } );
+    });
 
     my $low_vol  = $self->vol->{low_barrier_vol};
-    my $put_prob = $self->_calculate_probability({ 
+    my $put_prob = $self->_calculate_probability({
         contract_type => 'PUT',
         strikes       => [$low_strike],
         vol           => $low_vol,
@@ -502,14 +506,14 @@ sub _get_spread {
 }
 
 sub _get_market_rr_bf {
-    my $self = shift;
+    my $self       = shift;
     my $first_term = shift;
-    
+
     return $self->_get_volsurface->get_market_rr_bf($first_term);
 }
 
 sub _get_atm_volatility {
-    my $self = shift;
+    my $self     = shift;
     my $vol_args = shift;
 
     $vol_args->{delta} = 50;
@@ -517,8 +521,8 @@ sub _get_atm_volatility {
 }
 
 sub _get_volatility {
-    my $self = shift;
-    my $vol_args = shift;
+    my $self         = shift;
+    my $vol_args     = shift;
     my $surface_data = shift;
 
     my $volsurface = $self->_get_volsurface;
@@ -595,7 +599,7 @@ sub _pricing_args {
 
     #timeinyears does not exist in input parameters, we have to calculate it
     $result{_timeinyears} = $self->_timeinyears;
-    $result{vol} = $self->vol;
+    $result{vol}          = $self->vol;
 
     return \%result;
 }
