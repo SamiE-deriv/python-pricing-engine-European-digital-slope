@@ -169,7 +169,7 @@ subtest 'CALL probability' => sub {
     is $ref->{numeraire_probability}{parameters}{slope_adjustment}{parameters}{vanilla_vega}{parameters}{mu},  0.023, 'correct mu for vanilla_vega';
     is $ref->{numeraire_probability}{parameters}{slope_adjustment}{parameters}{vanilla_vega}{parameters}{discount_rate}, 0.025,
         'correct discount_rate for vanilla_vega';
-    is $ref->{base_vanilla_probability}{amount}, 0.692321231176061, 'correct base_vanilla_probability';
+    is $ref->{base_vanilla_probability}{amount}, 0.692055734227046, 'correct base_vanilla_probability';
     is $ref->{base_vanilla_probability}{parameters}{mu},            0.023, 'correct mu for base_vanilla_probability';
     is $ref->{base_vanilla_probability}{parameters}{discount_rate}, 0.011, 'correct discount_rate for base_vanilla_probability';
 };
