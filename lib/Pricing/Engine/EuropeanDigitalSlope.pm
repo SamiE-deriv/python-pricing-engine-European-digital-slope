@@ -442,8 +442,10 @@ sub _calculate_probability {
             $debug_info{base_probability}{parameters} = $calc_parameters;
         } elsif ($priced_with eq 'base') {
             my %cloned_params = %$params;
+            # refer to formula 5.23 and 5.24 of castagna book page 149, both digital and vanilla option need to be priced in numeraire
             $cloned_params{mu}            = $self->r_rate - $self->q_rate;
             $cloned_params{discount_rate} = $self->r_rate;
+
             my $numeraire_prob;
             ($numeraire_prob, $calc_parameters) = $self->_calculate($contract_type, \%cloned_params);
             $debug_info{base_probability}{parameters}{numeraire_probability}{amount}     = $numeraire_prob;
