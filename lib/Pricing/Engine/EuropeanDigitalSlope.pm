@@ -449,7 +449,7 @@ sub _calculate_probability {
             $debug_info{base_probability}{parameters}{numeraire_probability}{amount}     = $numeraire_prob;
             $debug_info{base_probability}{parameters}{numeraire_probability}{parameters} = $calc_parameters;
             my $vanilla_formula          = _bs_formula_for('vanilla_' . $contract_type);
-            my $base_vanilla_probability = $vanilla_formula->(_to_array($params));
+            my $base_vanilla_probability = $vanilla_formula->(_to_array(\%cloned_params));
             $debug_info{base_probability}{parameters}{base_vanilla_probability}{amount}     = $base_vanilla_probability;
             $debug_info{base_probability}{parameters}{base_vanilla_probability}{parameters} = $params;
             my $which_way = $contract_type eq 'CALL' ? 1 : -1;
