@@ -26,7 +26,7 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =cut
 
-our $VERSION = '1.23';
+our $VERSION = '1.24';
 
 =head1 SYNOPSIS
 
@@ -442,16 +442,18 @@ sub _calculate_probability {
             $debug_info{base_probability}{parameters} = $calc_parameters;
         } elsif ($priced_with eq 'base') {
             my %cloned_params = %$params;
+            # refer to formula 5.23 and 5.24 of castagna book page 149, both digital and vanilla option need to be priced in numeraire
             $cloned_params{mu}            = $self->r_rate - $self->q_rate;
             $cloned_params{discount_rate} = $self->r_rate;
+
             my $numeraire_prob;
             ($numeraire_prob, $calc_parameters) = $self->_calculate($contract_type, \%cloned_params);
             $debug_info{base_probability}{parameters}{numeraire_probability}{amount}     = $numeraire_prob;
             $debug_info{base_probability}{parameters}{numeraire_probability}{parameters} = $calc_parameters;
             my $vanilla_formula          = _bs_formula_for('vanilla_' . $contract_type);
-            my $base_vanilla_probability = $vanilla_formula->(_to_array($params));
+            my $base_vanilla_probability = $vanilla_formula->(_to_array(\%cloned_params));
             $debug_info{base_probability}{parameters}{base_vanilla_probability}{amount}     = $base_vanilla_probability;
-            $debug_info{base_probability}{parameters}{base_vanilla_probability}{parameters} = $params;
+            $debug_info{base_probability}{parameters}{base_vanilla_probability}{parameters} = \%cloned_params;
             my $which_way = $contract_type eq 'CALL' ? 1 : -1;
             my $strike = $params->{strikes}->[0];
             $debug_info{base_probability}{parameters}{spot}{amount}   = $self->spot;
