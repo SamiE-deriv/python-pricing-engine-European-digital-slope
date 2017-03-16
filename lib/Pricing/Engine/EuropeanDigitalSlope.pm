@@ -40,6 +40,7 @@ our $VERSION = '1.24';
       strikes => [121], # an array reference of strikes. [$strike1, $strike2] for multiple strikes contracts
       date_start => $now, # epoch or Date::Utility object
       date_pricing => $now, # epoch or Date::Utility object
+      volatility_effective_start => $now, #epoch or Date::Utility object
       date_expiry => $now + 86400, # epoch or Date::Utility object
       mu => 0.001,
       vol => 0.1, # 10% volatility
@@ -105,6 +106,10 @@ The time of which the contract is priced. Is a Date::Utility object.
 =head2 date_expiry
 
 The expiration time of the contract. Is a Date::Utility object.
+
+=head2 volatility_effective_start
+
+The effective date for the volatility. Is a Date::Utility object.
 
 =cut
 
@@ -624,7 +629,7 @@ sub _get_vol_expiry {
     my $self = shift;
 
     return {
-        from => $self->date_start,
+        from => $self->volatility_effective_start,
         to   => $self->date_expiry
     };
 }
