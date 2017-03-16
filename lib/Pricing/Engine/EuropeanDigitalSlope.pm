@@ -40,7 +40,6 @@ our $VERSION = '1.24';
       strikes => [121], # an array reference of strikes. [$strike1, $strike2] for multiple strikes contracts
       date_start => $now, # epoch or Date::Utility object
       date_pricing => $now, # epoch or Date::Utility object
-      volatility_effective_start => $now, #epoch or Date::Utility object
       date_expiry => $now + 86400, # epoch or Date::Utility object
       mu => 0.001,
       vol => 0.1, # 10% volatility
@@ -107,9 +106,6 @@ The time of which the contract is priced. Is a Date::Utility object.
 
 The expiration time of the contract. Is a Date::Utility object.
 
-=head2 volatility_effective_start
-
-The effective date for the volatility. Is a Date::Utility object.
 
 =cut
 
@@ -628,8 +624,11 @@ sub _get_first_tenor_on_surface {
 sub _get_vol_expiry {
     my $self = shift;
 
+    # After expiry, the date_start (ie effective_start of a contract) can go beyond date_expiry 
+    my $start_date = ($self->date_pricing->is_after($self->date_expiry)) ? $self->date_expiry : $self->date_start;
+
     return {
-        from => $self->volatility_effective_start,
+        from => $start_date,
         to   => $self->date_expiry
     };
 }
