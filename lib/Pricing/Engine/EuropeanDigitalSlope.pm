@@ -158,7 +158,7 @@ sub required_args {
 has [
     qw(volsurface volsurface_recorded_date contract_type spot strikes vol
         discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
-        chronicle_reader)
+        chronicle_reader is_atm_contract)
     ] => (
     is       => 'ro',
     required => 1,
