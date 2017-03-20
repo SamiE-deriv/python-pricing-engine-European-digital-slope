@@ -302,17 +302,18 @@ sub _risk_markup {
         $greek_params{vol} = $self->_get_atm_volatility($vol_args);
 
         # vol_spread_markup
-        my $spread_type = $self->is_atm_contract ? 'atm' : 'max';
-        my $vol_spread = $self->_get_spread({
-            sought_point => $spread_type,
-            day          => $self->_timeindays
-        });
+        if (not $self->is_atm_contract) {
+            my $vol_spread = $self->_get_spread({
+                sought_point => 'max',
+                day          => $self->_timeindays
+            });
 
-        my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
-        my $bs_vega           = abs($bs_vega_formula->(_to_array(\%greek_params)));
-        my $vol_spread_markup = min($vol_spread * $bs_vega, 0.7);
-        $risk_markup += $vol_spread_markup;
-        $self->debug_info->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
+            my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
+            my $bs_vega           = abs($bs_vega_formula->(_to_array(\%greek_params)));
+            my $vol_spread_markup = min($vol_spread * $bs_vega, 0.7);
+            $risk_markup += $vol_spread_markup;
+            $self->debug_info->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
+        }
 
         # spot_spread_markup
         if (not $is_intraday) {
