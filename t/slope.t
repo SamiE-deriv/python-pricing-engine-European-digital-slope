@@ -437,7 +437,7 @@ subtest 'smile uncertainty markup' => sub {
         $pp->{strikes} = [101];
         $pp->{date_expiry} = $now->plus_time_interval('6d');
         my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
-        ok !$pe->_is_atm_contract, 'non ATM contract';
+        ok !$pe->is_atm_contract, 'non ATM contract';
         is $pe->_timeindays, 6, 'timeindays < 7';
         $pe->_risk_markup;
         ok !exists $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 'smile uncertainty markup will not apply to less than 7 days non-ATM contract';
