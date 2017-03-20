@@ -106,6 +106,10 @@ The time of which the contract is priced. Is a Date::Utility object.
 
 The expiration time of the contract. Is a Date::Utility object.
 
+=head2 is_atm_contract
+
+Is this At The Money contract?
+
 =cut
 
 # Contract types supported by this engine.
@@ -147,7 +151,7 @@ sub required_args {
     return [
         qw(for_date volsurface volsurface_recorded_date contract_type spot strikes vol date_start date_pricing
             date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
-            chronicle_reader)
+            chronicle_reader is_atm_contract)
     ];
 }
 
@@ -298,7 +302,7 @@ sub _risk_markup {
         $greek_params{vol} = $self->_get_atm_volatility($vol_args);
 
         # vol_spread_markup
-        my $spread_type = $self->_is_atm_contract ? 'atm' : 'max';
+        my $spread_type = $self->is_atm_contract ? 'atm' : 'max';
         my $vol_spread = $self->_get_spread({
             sought_point => $spread_type,
             day          => $self->_timeindays
@@ -324,7 +328,7 @@ sub _risk_markup {
 
         # Generally for indices and stocks the minimum available tenor for smile is 30 days.
         # We use this to price short term contracts, so adding a 5% markup for the volatility uncertainty.
-        if ($market_markup_config->{smile_uncertainty_markup} and $self->_timeindays < 7 and not $self->_is_atm_contract) {
+        if ($market_markup_config->{smile_uncertainty_markup} and $self->_timeindays < 7 and not $self->is_atm_contract) {
             my $smile_uncertainty_markup = 0.05;
             $risk_markup += $smile_uncertainty_markup;
             $self->debug_info->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
@@ -406,11 +410,6 @@ sub _two_barriers {
 sub _is_intraday {
     my $self = shift;
     return ($self->_timeindays > 1) ? 0 : 1;
-}
-
-sub _is_atm_contract {
-    my $self = shift;
-    return ($self->_two_barriers or $self->spot != $self->strikes->[0]) ? 0 : 1;
 }
 
 sub _calculate_probability {
