@@ -61,6 +61,8 @@ sub _get_params {
         EXPIRYMISS  => [101 * $multiplier, 99 * $multiplier],
         EXPIRYRANGE => [101 * $multiplier, 99 * $multiplier],
     );
+    my $spot = 100;
+    my $is_atm_contract = $spot == $strikes{$ct} ? 1 : 0;
     return {
         volsurface        => {
             1 => {
@@ -85,7 +87,7 @@ sub _get_params {
             },
         },
         priced_with       => 'numeraire',
-        spot              => 100,
+        spot              => $spot,
         strikes           => $strikes{$ct},
         date_start        => $now,
         date_pricing      => $now,
@@ -100,12 +102,13 @@ sub _get_params {
         underlying_symbol => 'frxEURUSD',
         volsurface_recorded_date => $now,
         chronicle_reader  => undef,
+        is_atm_contract   => $is_atm_contract,
     };
 }
 
 price_check('EXPIRYRANGE', 0.0011);
 price_check('EXPIRYMISS', 1);
-price_check('CALL', 0.4368);
+price_check('CALL', 0.4365);
 
 $multiplier = 1.001;
 price_check('EXPIRYRANGE', 0.3747);

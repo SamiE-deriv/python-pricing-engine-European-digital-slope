@@ -48,4 +48,5 @@ params:
                 vol_spread:
                     50: 0.02
         'holidays::holidays':
+    is_atm_contract: 0
 result: 0.4713

@@ -6,6 +6,7 @@ use YAML::XS qw(LoadFile);
 use Date::Utility;
 use Format::Util::Numbers qw(roundnear);
 
+use Data::Chronicle::Reader;
 use Pricing::Engine::EuropeanDigitalSlope;
 
 my $dir = 't/raw_test_config';
