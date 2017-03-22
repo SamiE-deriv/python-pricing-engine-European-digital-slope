@@ -26,7 +26,7 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =cut
 
-our $VERSION = '1.24';
+our $VERSION = '1.25';
 
 =head1 SYNOPSIS
 
@@ -106,6 +106,10 @@ The time of which the contract is priced. Is a Date::Utility object.
 
 The expiration time of the contract. Is a Date::Utility object.
 
+=head2 is_atm_contract
+
+Is this At The Money contract?
+
 =cut
 
 # Contract types supported by this engine.
@@ -147,14 +151,14 @@ sub required_args {
     return [
         qw(for_date volsurface volsurface_recorded_date contract_type spot strikes vol date_start date_pricing
             date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
-            chronicle_reader)
+            chronicle_reader is_atm_contract)
     ];
 }
 
 has [
     qw(volsurface volsurface_recorded_date contract_type spot strikes vol
         discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
-        chronicle_reader)
+        chronicle_reader is_atm_contract)
     ] => (
     is       => 'ro',
     required => 1,
@@ -298,17 +302,18 @@ sub _risk_markup {
         $greek_params{vol} = $self->_get_atm_volatility($vol_args);
 
         # vol_spread_markup
-        my $spread_type = $self->_is_atm_contract ? 'atm' : 'max';
-        my $vol_spread = $self->_get_spread({
-            sought_point => $spread_type,
-            day          => $self->_timeindays
-        });
+        if (not $self->is_atm_contract) {
+            my $vol_spread = $self->_get_spread({
+                sought_point => 'max',
+                day          => $self->_timeindays
+            });
 
-        my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
-        my $bs_vega           = abs($bs_vega_formula->(_to_array(\%greek_params)));
-        my $vol_spread_markup = min($vol_spread * $bs_vega, 0.7);
-        $risk_markup += $vol_spread_markup;
-        $self->debug_info->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
+            my $bs_vega_formula   = _greek_formula_for('vega', $self->contract_type);
+            my $bs_vega           = abs($bs_vega_formula->(_to_array(\%greek_params)));
+            my $vol_spread_markup = min($vol_spread * $bs_vega, 0.7);
+            $risk_markup += $vol_spread_markup;
+            $self->debug_info->{risk_markup}{parameters}{vol_spread_markup} = $vol_spread_markup;
+        }
 
         # spot_spread_markup
         if (not $is_intraday) {
@@ -324,7 +329,7 @@ sub _risk_markup {
 
         # Generally for indices and stocks the minimum available tenor for smile is 30 days.
         # We use this to price short term contracts, so adding a 5% markup for the volatility uncertainty.
-        if ($market_markup_config->{smile_uncertainty_markup} and $self->_timeindays < 7 and not $self->_is_atm_contract) {
+        if ($market_markup_config->{smile_uncertainty_markup} and $self->_timeindays < 7 and not $self->is_atm_contract) {
             my $smile_uncertainty_markup = 0.05;
             $risk_markup += $smile_uncertainty_markup;
             $self->debug_info->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
@@ -406,11 +411,6 @@ sub _two_barriers {
 sub _is_intraday {
     my $self = shift;
     return ($self->_timeindays > 1) ? 0 : 1;
-}
-
-sub _is_atm_contract {
-    my $self = shift;
-    return ($self->_two_barriers or $self->spot != $self->strikes->[0]) ? 0 : 1;
 }
 
 sub _calculate_probability {
