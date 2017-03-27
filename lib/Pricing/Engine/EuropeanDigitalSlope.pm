@@ -26,7 +26,7 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =cut
 
-our $VERSION = '1.26';
+our $VERSION = '1.25';
 
 =head1 SYNOPSIS
 
@@ -623,11 +623,8 @@ sub _get_first_tenor_on_surface {
 sub _get_vol_expiry {
     my $self = shift;
 
-    # After expiry, the date_start (ie effective_start of a contract) can go beyond date_expiry
-    my $start_date = ($self->date_pricing->is_after($self->date_expiry)) ? $self->date_expiry : $self->date_start;
-
     return {
-        from => $start_date,
+        from => $self->date_start,
         to   => $self->date_expiry
     };
 }
