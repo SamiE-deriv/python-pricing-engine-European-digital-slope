@@ -1,9 +1,5 @@
 {{$NEXT}}
 
-1.26      2017-03-24 02:36:13+00:00 UTC
-1.26      2017-03-24 02:32:23+00:00 UTC
-          fixed inverted date
-
 1.25      2017-03-22 02:55:23+00:00 UTC
           volspread markup for non-atm
 
