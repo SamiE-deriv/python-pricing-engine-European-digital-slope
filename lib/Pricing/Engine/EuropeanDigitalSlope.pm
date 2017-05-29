@@ -125,7 +125,6 @@ state $formula_args = [qw(spot strikes _timeinyears discount_rate mu vol payoutt
 state $markup_config = {
     forex => {
         traded_market_markup => 1,
-        butterfly_markup     => 1
     },
     commodities => {
         traded_market_markup => 1,
@@ -333,33 +332,6 @@ sub _risk_markup {
             my $smile_uncertainty_markup = 0.05;
             $risk_markup += $smile_uncertainty_markup;
             $self->debug_info->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
-        }
-
-        # This is added for the high butterfly condition where the overnight butterfly is higher than threshold (0.01),
-        # We add the difference between then original probability and adjusted butterfly probability as markup.
-        if ($market_markup_config->{'butterfly_markup'} and $self->_timeindays <= $self->_get_overnight_tenor) {
-            my $butterfly_cutoff = 0.01;
-            my $original_surface = $self->_get_volsurface->surface;
-            my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
-            my $market_rr_bf     = $self->_get_market_rr_bf($first_term);
-            if ($first_term == $self->_get_overnight_tenor and $market_rr_bf->{BF_25} > $butterfly_cutoff) {
-                my $original_rr = $market_rr_bf->{RR_25};
-                my ($atm, $c25, undef) = map { $original_surface->{$first_term}{smile}{$_} } qw(50 25 75);
-                my $c25_mod             = $butterfly_cutoff + $atm + 0.5 * $original_rr;
-                my $c75_mod             = $c25 - $original_rr;
-                my $cloned_surface_data = dclone($original_surface);
-                $cloned_surface_data->{$first_term}{smile}{25} = $c25_mod;
-                $cloned_surface_data->{$first_term}{smile}{75} = $c75_mod;
-                my $vol_args = {
-                    strike => $self->_two_barriers ? $self->spot : $self->strikes->[0],
-                    %{$self->_get_vol_expiry},
-                };
-                my $vol_after_butterfly_adjustment = $self->_get_volatility($vol_args, $cloned_surface_data);
-                my $butterfly_adjusted_prob = $self->_calculate_probability({vol => $vol_after_butterfly_adjustment});
-                my $butterfly_markup = min(0.1, abs($self->_bs_probability - $butterfly_adjusted_prob));
-                $risk_markup += $butterfly_markup;
-                $self->debug_info->{risk_markup}{parameters}{butterfly_markup} = $butterfly_markup;
-            }
         }
 
         # risk_markup divided equally on both sides.
