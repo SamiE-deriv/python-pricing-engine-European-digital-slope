@@ -17,10 +17,7 @@ before_install:
     - /tmp/travis-scripts/redis.sh
 install:
     - /tmp/travis-scripts/devbox.sh *.yml
-    - cpanm --quiet --notest Dist::Zilla Dist::Zilla::App::Command::cover App::cpm Devel::Cover::Report::Codecov
-    - cpm install -w 2 --mirror=http://cpan.cpantesters.org/ -g  DBIx::TransactionManager::Distributed  # fix dependencies of Finance::Asset . This line should be removed later
-    - cpm install -w 2 --mirror=http://cpan.cpantesters.org/ -g $(dzil authordeps --missing)
-    - cpm install -w 2 --mirror=http://cpan.cpantesters.org/  -g $(dzil listdeps --author --missing) || cpanm --quiet --notest --mirror-only --mirror https://binary:L909ZCquy8Yo6h1L@stratopan.com/binary/Binary/master $(dzil listdeps --author --missing)
+    - . /tmp/travis-scripts/perl_cpan.sh
 
 script:
      - dzil smoke --release --author && dzil cover -test -report codecov && dzil xtest
