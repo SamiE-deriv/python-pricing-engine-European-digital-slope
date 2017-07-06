@@ -10,12 +10,14 @@ use Pricing::Engine::EuropeanDigitalSlope;
 use Date::Utility;
 use Test::MockModule;
 
-my $now = Date::Utility->new('2015-10-21')->plus_time_interval('3h');
+my $now        = Date::Utility->new('2015-10-21')->plus_time_interval('3h');
 my $multiplier = 1.0;
 
 my $module = Test::MockModule->new('Pricing::Engine::EuropeanDigitalSlope');
-$module->mock('_get_spread', sub {
-        my $self = shift;
+$module->mock(
+    '_get_spread',
+    sub {
+        my $self      = shift;
         my $args      = shift;
         my %volspread = (
             max => 0.0010,
@@ -24,8 +26,10 @@ $module->mock('_get_spread', sub {
         return $volspread{$args->{sought_point}};
     });
 
-$module->mock('_get_volatility', sub {
-        my $self = shift;
+$module->mock(
+    '_get_volatility',
+    sub {
+        my $self     = shift;
         my $vol_args = shift;
 
         my %vols = (
@@ -39,19 +43,22 @@ $module->mock('_get_volatility', sub {
             99        => 0.15001,
             98.99999  => 0.1499965,
         );
-        
+
         return $multiplier * $vols{$vol_args->{strike}};
     });
 
-$module->mock('_get_market_rr_bf', sub {
+$module->mock(
+    '_get_market_rr_bf',
+    sub {
         return {
             ATM   => 0.01,
             RR_25 => 0.013,
             BF_25 => 0.014,
-        }});
+        };
+    });
 
 $module->mock('_get_overnight_tenor', sub { return 1; });
-$module->mock('_get_atm_volatility', sub { return 0.14; });
+$module->mock('_get_atm_volatility',  sub { return 0.14; });
 
 sub _get_params {
     my $ct = shift;
@@ -64,7 +71,7 @@ sub _get_params {
     my $spot = 100;
     my $is_atm_contract = $spot == $strikes{$ct} ? 1 : 0;
     return {
-        volsurface        => {
+        volsurface => {
             1 => {
                 smile => {
                     25 => 0.18,
@@ -86,47 +93,55 @@ sub _get_params {
                 }
             },
         },
-        priced_with       => 'numeraire',
-        spot              => $spot,
-        strikes           => $strikes{$ct},
-        date_start        => $now,
-        date_pricing      => $now,
-        date_expiry       => $now->plus_time_interval('10d'),
-        discount_rate     => 0.02 * $multiplier,
-        q_rate            => 0.003 * $multiplier,
-        r_rate            => 0.026 * $multiplier,
-        mu                => 0.024 * $multiplier,
-        vol               => $ct eq ('CALL' or 'PUT') ? 0.1 : {high_barrier_vol => 0.1, low_barrier_vol => 0.16},
-        payouttime_code   => 0,
-        contract_type     => $ct,
-        underlying_symbol => 'frxEURUSD',
-        volsurface_recorded_date => $now,
-        chronicle_reader  => undef,
-        is_atm_contract   => $is_atm_contract,
+        priced_with   => 'numeraire',
+        spot          => $spot,
+        strikes       => $strikes{$ct},
+        date_start    => $now,
+        date_pricing  => $now,
+        date_expiry   => $now->plus_time_interval('10d'),
+        discount_rate => 0.02 * $multiplier,
+        q_rate        => 0.003 * $multiplier,
+        r_rate        => 0.026 * $multiplier,
+        mu            => 0.024 * $multiplier,
+        vol           => $ct eq (
+                   'CALL'
+                or 'PUT'
+            )
+        ? 0.1
+        : {
+            high_barrier_vol => 0.1,
+            low_barrier_vol  => 0.16
+        },
+        payouttime_code          => 0,
+        contract_type            => $ct,
+        underlying_symbol        => 'frxEURUSD',
+        volsurface_creation_date => $now,
+        chronicle_reader         => undef,
+        is_atm_contract          => $is_atm_contract,
     };
 }
 
 price_check('EXPIRYRANGE', 0.0011);
-price_check('EXPIRYMISS', 1);
-price_check('CALL', 0.4365);
+price_check('EXPIRYMISS',  1);
+price_check('CALL',        0.4365);
 
 $multiplier = 1.001;
 price_check('EXPIRYRANGE', 0.3747);
-price_check('EXPIRYMISS', 0.627);
-price_check('CALL', 0.4882);
+price_check('EXPIRYMISS',  0.627);
+price_check('CALL',        0.4882);
 
 $multiplier = 0.97;
 price_check('EXPIRYRANGE', 0.0408);
-price_check('EXPIRYMISS', 0.9594);
-price_check('CALL', 0.9696);
+price_check('EXPIRYMISS',  0.9594);
+price_check('CALL',        0.9696);
 
 $multiplier = 0.99;
 price_check('EXPIRYRANGE', 0.2653);
-price_check('EXPIRYMISS', 0.7358);
-price_check('CALL', 0.0006);
+price_check('EXPIRYMISS',  0.7358);
+price_check('CALL',        0.0006);
 
 sub price_check {
-    my $type = shift;
+    my $type     = shift;
     my $expected = shift;
 
     my $pe = Pricing::Engine::EuropeanDigitalSlope->new(_get_params($type));

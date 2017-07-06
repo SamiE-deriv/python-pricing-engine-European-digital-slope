@@ -30,7 +30,7 @@ params:
                 75: 0.13
             vol_spread:
                 50: 0.01
-    volsurface_recorded_date : 1484290159
+    volsurface_creation_date : 1484290159
     chronicle_hash:
         'volatility_surfaces::frxEURUSD':
             1:

@@ -117,7 +117,7 @@ sub _get_params {
         payouttime_code          => 0,
         contract_type            => $ct,
         underlying_symbol        => 'frxEURUSD',
-        volsurface_recorded_date => $now,
+        volsurface_creation_date => $now,
         chronicle_reader         => undef,
         is_atm_contract          => $is_atm_contract,
     };
