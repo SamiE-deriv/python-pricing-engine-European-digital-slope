@@ -148,14 +148,14 @@ Required arguments for this engine to work.
 
 sub required_args {
     return [
-        qw(for_date volsurface volsurface_recorded_date contract_type spot strikes vol date_start date_pricing
+        qw(for_date volsurface volsurface_creation_date contract_type spot strikes vol date_start date_pricing
             date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
             chronicle_reader is_atm_contract)
     ];
 }
 
 has [
-    qw(volsurface volsurface_recorded_date contract_type spot strikes vol
+    qw(volsurface volsurface_creation_date contract_type spot strikes vol
         discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
         chronicle_reader is_atm_contract)
     ] => (
@@ -268,7 +268,7 @@ sub _get_volsurface {
     return $class->new({
         underlying       => $underlying,
         surface          => $self->volsurface,
-        recorded_date    => $self->volsurface_recorded_date,
+        creation_date    => $self->volsurface_creation_date,
         chronicle_reader => $self->chronicle_reader,
         type             => $underlying->volatility_surface_type,
     });
