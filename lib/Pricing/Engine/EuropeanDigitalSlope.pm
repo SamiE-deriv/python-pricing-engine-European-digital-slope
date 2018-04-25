@@ -185,6 +185,16 @@ has error => (
     default  => '',
 );
 
+has apply_equal_tie_markup => (
+    is         => 'ro',
+    lazy_build => 0,
+);
+
+sub _build_apply_equal_tie_markup {
+    return 1 if ($self->contract_type eq 'CALLE' or $self->contract_type eq 'PUTE');
+
+}
+
 sub _validate {
     my $self = shift;
 
@@ -337,6 +347,12 @@ sub _risk_markup {
         # risk_markup divided equally on both sides.
         $risk_markup /= 2;
     }
+
+    if ($self->apply_equal_tie_markup) {
+        $risk_markup += 0.02;
+        $self->debug_info->{risk_markup}{parameters}{equal_tie_markup} = 0.02;
+    }
+    
 
     $self->debug_info->{risk_markup}{amount} = $risk_markup;
 
