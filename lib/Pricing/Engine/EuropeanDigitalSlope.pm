@@ -191,6 +191,7 @@ has apply_equal_tie_markup => (
 );
 
 sub _build_apply_equal_tie_markup {
+    my $self = shift;
     return 1 if ($self->contract_type eq 'CALLE' or $self->contract_type eq 'PUTE');
 
 }
