@@ -16,6 +16,7 @@ use Machine::Epsilon;
 use Quant::Framework::Underlying;
 use Quant::Framework::VolSurface::Delta;
 use Quant::Framework::VolSurface::Moneyness;
+use Pricing::Engine::Markup::EqualTie;
 
 subtype 'Pricing::Engine::EuropeanDigitalSlope::DateObject', as 'Date::Utility';
 coerce 'Pricing::Engine::EuropeanDigitalSlope::DateObject', from 'Str', via { Date::Utility->new($_) };
@@ -347,13 +348,14 @@ sub _risk_markup {
 
         # risk_markup divided equally on both sides.
         $risk_markup /= 2;
-    }
 
-    if ($self->apply_equal_tie_markup) {
-        $risk_markup += 0.02;
-        $self->debug_info->{risk_markup}{parameters}{equal_tie_markup} = 0.02;
+        if ($self->apply_equal_tie_markup) {
+            my $equal_tie_markup = Pricing::Engine::Markup::EqualTie->new->markup->amount;
+            $risk_markup += $equal_tie_markup;
+            $self->debug_info->{risk_markup}{parameters}{equal_tie_markup} = $equal_tie_markup;
+        }
+
     }
-    
 
     $self->debug_info->{risk_markup}{amount} = $risk_markup;
 
