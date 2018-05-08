@@ -350,7 +350,7 @@ sub _risk_markup {
         $risk_markup /= 2;
 
         if ($self->apply_equal_tie_markup) {
-            my $equal_tie_markup = Pricing::Engine::Markup::EqualTie->new->markup->amount;
+            my $equal_tie_markup = Pricing::Engine::Markup::EqualTie->new(underlying_symbol => $self->underlying_symbol)->markup->amount) ;
             $risk_markup += $equal_tie_markup;
             $self->debug_info->{risk_markup}{parameters}{equal_tie_markup} = $equal_tie_markup;
         }
