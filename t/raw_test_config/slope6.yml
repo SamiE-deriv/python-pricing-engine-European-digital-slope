@@ -49,4 +49,4 @@ params:
                     50: 0.09
         'holidays::holidays':
     is_atm_contract: 0
-result: 0.0046
+result: 0.0049
