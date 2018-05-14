@@ -9,6 +9,7 @@ use Format::Util::Numbers qw(roundnear);
 use Data::Chronicle::Reader;
 use Pricing::Engine::EuropeanDigitalSlope;
 
+$ENV{TEST_DATABASE} = 1;
 my $dir = 't/raw_test_config';
 opendir(DIR, $dir) or die "cannot open directory";
 @docs = grep(/\.yml$/, readdir(DIR));
