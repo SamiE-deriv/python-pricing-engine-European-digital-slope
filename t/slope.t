@@ -98,6 +98,7 @@ sub _get_params {
         priced_with   => $priced_with,
         spot          => $spot,
         strikes       => $strikes{$ct},
+        apply_equal_tie_markup => 0,
         date_start    => $now,
         date_pricing  => $now,
         date_expiry   => $now->plus_time_interval('10d'),

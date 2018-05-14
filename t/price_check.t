@@ -94,6 +94,7 @@ sub _get_params {
             },
         },
         priced_with   => 'numeraire',
+        apply_equal_tie_markup => 0,
         spot          => $spot,
         strikes       => $strikes{$ct},
         date_start    => $now,
