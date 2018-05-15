@@ -129,10 +129,6 @@ state $markup_config = {
     commodities => {
         traded_market_markup => 1,
     },
-    stocks => {
-        traded_market_markup     => 1,
-        smile_uncertainty_markup => 1,
-    },
     indices => {
         traded_market_markup     => 1,
         smile_uncertainty_markup => 1,
@@ -326,7 +322,7 @@ sub _risk_markup {
             $self->debug_info->{risk_markup}{parameters}{spot_spread_markup} = $spot_spread_markup;
         }
 
-        # Generally for indices and stocks the minimum available tenor for smile is 30 days.
+        # Generally for indices, the minimum available tenor for smile is 30 days.
         # We use this to price short term contracts, so adding a 5% markup for the volatility uncertainty.
         if ($market_markup_config->{smile_uncertainty_markup} and $self->_timeindays < 7 and not $self->is_atm_contract) {
             my $smile_uncertainty_markup = 0.05;

@@ -369,7 +369,6 @@ subtest 'expiry before start' => sub {
 my %underlyings = (
     forex       => 'frxEURUSD',
     indices     => 'AEX',
-    stocks      => 'INICICIBC',
     commodities => 'frxXAUUSD',
 );
 
@@ -418,7 +417,7 @@ subtest 'spot spread markup' => sub {
 };
 subtest 'smile uncertainty markup' => sub {
     my $pp = _get_params('CALL', 'numeraire');
-    foreach my $market (qw(indices stocks)) {
+    my $market = 'indices';
         note("market: $market, $underlyings{$market}");
         $pp->{underlying_symbol} = $underlyings{$market};
         $pp->{date_expiry}       = $now->plus_time_interval('6d');
@@ -449,7 +448,6 @@ subtest 'smile uncertainty markup' => sub {
         ok exists $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup},
             'smile uncertainty markup will be applied to less than 7 days non-ATM contract';
         is $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 0.05, 'smile uncertainty markup is 0.05';
-    }
 
     foreach my $market (qw(forex commodities)) {
         note("market: $market, $underlyings{$market}");
