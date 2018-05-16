@@ -3,7 +3,7 @@ requires 'Date::Utility';
 requires 'Finance::Asset';
 requires 'List::Util';
 requires 'Scalar::Util';
-requires 'Math::Business::BlackScholes::Binaries';
+requires 'Math::Business::BlackScholesMerton';
 requires 'Math::Business::BlackScholes::Binaries::Greeks::Delta';
 requires 'Math::Business::BlackScholes::Binaries::Greeks::Vega';
 requires 'Math::Function::Interpolator';
