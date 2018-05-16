@@ -9,7 +9,8 @@ use Storable qw(dclone);
 use List::Util qw(min max sum);
 use YAML::XS qw(LoadFile);
 use Finance::Asset;
-use Math::Business::BlackScholes::Binaries;
+use Math::Business::BlackScholesMerton::Binaries;
+use Math::Business::BlackScholesMerton::NonBinaries;
 use Math::Business::BlackScholes::Binaries::Greeks::Vega;
 use Math::Business::BlackScholes::Binaries::Greeks::Delta;
 use Machine::Epsilon;
@@ -570,8 +571,9 @@ sub _calculate {
 
 sub _bs_formula_for {
     my $contract_type = shift;
-    my $formula_path  = 'Math::Business::BlackScholes::Binaries::' . lc $contract_type;
-    return \&$formula_path;
+    my $module = $contract_type =~ /^vanilla_/ ? 'Math::Business::BlackScholesMerton::NonBinaries' : 'Math::Business::BlackScholesMerton::Binaries';
+
+    return $module->can(lc $contract_type) or die 'Could not price ' . $contract_type;
 }
 
 sub _greek_formula_for {
