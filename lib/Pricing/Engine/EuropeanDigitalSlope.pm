@@ -296,7 +296,7 @@ sub _risk_markup {
     my $risk_markup = 0;
     if ($market_markup_config->{'traded_market_markup'}) {
         # risk_markup is zero for forward_starting contracts due to complaints from Australian affiliates.
-        return $risk_markup if ($self->_is_forward_starting);
+        return $risk_markup if ($self->_is_forward_starting and not $self->apply_equal_tie_markup);
 
         my %greek_params = %{$self->_pricing_args};
 
