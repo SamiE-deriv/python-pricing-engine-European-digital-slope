@@ -17,6 +17,7 @@ use Machine::Epsilon;
 use Quant::Framework::Underlying;
 use Quant::Framework::VolSurface::Delta;
 use Quant::Framework::VolSurface::Moneyness;
+use Pricing::Engine::Markup::EqualTie;
 
 subtype 'Pricing::Engine::EuropeanDigitalSlope::DateObject', as 'Date::Utility';
 coerce 'Pricing::Engine::EuropeanDigitalSlope::DateObject', from 'Str', via { Date::Utility->new($_) };
@@ -182,6 +183,11 @@ has error => (
     default  => '',
 );
 
+has apply_equal_tie_markup => (
+    is         => 'ro',
+    required => 1,
+);
+
 sub _validate {
     my $self = shift;
 
@@ -290,7 +296,7 @@ sub _risk_markup {
     my $risk_markup = 0;
     if ($market_markup_config->{'traded_market_markup'}) {
         # risk_markup is zero for forward_starting contracts due to complaints from Australian affiliates.
-        return $risk_markup if ($self->_is_forward_starting);
+        return $risk_markup if ($self->_is_forward_starting and not $self->apply_equal_tie_markup);
 
         my %greek_params = %{$self->_pricing_args};
 
@@ -333,6 +339,13 @@ sub _risk_markup {
 
         # risk_markup divided equally on both sides.
         $risk_markup /= 2;
+
+        if ($self->apply_equal_tie_markup) {
+            my $equal_tie_markup = Pricing::Engine::Markup::EqualTie->new(underlying_symbol => $self->underlying_symbol, timeinyears => $self->_timeinyears)->markup->amount;
+            $risk_markup += $equal_tie_markup;
+            $self->debug_info->{risk_markup}{parameters}{equal_tie_markup} = $equal_tie_markup;
+        }
+
     }
 
     $self->debug_info->{risk_markup}{amount} = $risk_markup;

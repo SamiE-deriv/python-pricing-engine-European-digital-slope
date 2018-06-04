@@ -7,6 +7,7 @@ requires 'Math::Business::BlackScholesMerton';
 requires 'Math::Business::BlackScholes::Binaries::Greeks::Delta';
 requires 'Math::Business::BlackScholes::Binaries::Greeks::Vega';
 requires 'Math::Function::Interpolator';
+requires 'Pricing::Engine::Markup::EqualTie';
 requires 'Storable';
 requires 'YAML::XS';
 requires 'perl', '5.014000';

@@ -18,7 +18,7 @@ foreach $file (@docs) {
     my $data   = LoadFile($dir . '/' . $file);
     my $input  = $data->{params};
     my $output = $data->{result};
-
+    $input->{apply_equal_tie_markup} = 0;
     $_ = Date::Utility->new(0 + $_) for (@{$input}{qw/date_start for_date date_pricing volsurface_creation_date/});
 
     $input->{chronicle_reader} = Data::Chronicle::Reader->new({
