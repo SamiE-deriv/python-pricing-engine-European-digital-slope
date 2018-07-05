@@ -569,7 +569,7 @@ sub _bs_formula_for {
     my $contract_type = shift;
     my $module = $contract_type =~ /^vanilla_/ ? 'Math::Business::BlackScholesMerton::NonBinaries' : 'Math::Business::BlackScholesMerton::Binaries';
 
-    return $module->can(lc $contract_type) or die 'Could not price ' . $contract_type;
+    return $module->can(lc $contract_type);
 }
 
 sub _greek_formula_for {
