@@ -6,7 +6,7 @@ use YAML::XS qw(LoadFile);
 use Date::Utility;
 use Format::Util::Numbers qw(roundnear);
 
-use Data::Chronicle::Reader;
+use Data::Chronicle::Mock;
 use Pricing::Engine::EuropeanDigitalSlope;
 
 $ENV{TEST_DATABASE} = 1;
@@ -21,10 +21,8 @@ foreach $file (@docs) {
     $input->{apply_equal_tie_markup} = 0;
     $_ = Date::Utility->new(0 + $_) for (@{$input}{qw/date_start for_date date_pricing volsurface_creation_date/});
 
-    $input->{chronicle_reader} = Data::Chronicle::Reader->new({
-            cache_reader => $input->{chronicle_hash},
-
-    });
+    my ($chronicle_r, $chronicle_w) = Data::Chronicle::Mock::get_mocked_chronicle();
+    $input->{chronicle_reader} = $chronicle_r;
 
     my $actual_result = roundnear(0.0001, Pricing::Engine::EuropeanDigitalSlope->new($input)->theo_probability);
     is $actual_result, $output, "pricing result is as expected [ $actual_result vs $output] in $file";
