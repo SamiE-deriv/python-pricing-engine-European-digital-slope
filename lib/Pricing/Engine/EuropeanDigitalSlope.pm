@@ -184,8 +184,12 @@ has error => (
 );
 
 has apply_equal_tie_markup => (
-    is         => 'ro',
+    is       => 'ro',
     required => 1,
+);
+
+has hour_end_markup_parameters => (
+    is => 'ro',
 );
 
 sub _validate {
@@ -295,6 +299,13 @@ sub _risk_markup {
 
     my $risk_markup = 0;
     if ($market_markup_config->{'traded_market_markup'}) {
+        if ($self->hour_end_markup_parameters and %{$self->hour_end_markup_parameters}) {
+            my $hour_end_markup =
+                Pricing::Engine::Markup::HourEndMarkup->new(hour_end_markup_parameters => $self->hour_end_markup_parameters)->markup->amount;
+            $risk_markup += $hour_end_markup;
+            $self->debug_info->{risk_markup}{parameters}{hour_end_markup} = $hour_end_markup;
+        }
+
         # risk_markup is zero for forward_starting contracts due to complaints from Australian affiliates.
         return $risk_markup if ($self->_is_forward_starting and not $self->apply_equal_tie_markup);
 
@@ -341,7 +352,10 @@ sub _risk_markup {
         $risk_markup /= 2;
 
         if ($self->apply_equal_tie_markup) {
-            my $equal_tie_markup = Pricing::Engine::Markup::EqualTie->new(underlying_symbol => $self->underlying_symbol, timeinyears => $self->_timeinyears)->markup->amount;
+            my $equal_tie_markup = Pricing::Engine::Markup::EqualTie->new(
+                underlying_symbol => $self->underlying_symbol,
+                timeinyears       => $self->_timeinyears
+            )->markup->amount;
             $risk_markup += $equal_tie_markup;
             $self->debug_info->{risk_markup}{parameters}{equal_tie_markup} = $equal_tie_markup;
         }
