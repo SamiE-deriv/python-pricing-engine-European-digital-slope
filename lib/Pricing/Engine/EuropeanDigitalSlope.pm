@@ -135,7 +135,7 @@ state $markup_config = {
         traded_market_markup     => 1,
         smile_uncertainty_markup => 1,
     },
-    synthetic_index => {},
+    volidx => {},
 };
 
 =head2 required_args
