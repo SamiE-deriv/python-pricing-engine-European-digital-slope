@@ -300,8 +300,18 @@ sub _risk_markup {
     my $risk_markup = 0;
     if ($market_markup_config->{'traded_market_markup'}) {
         if ($self->hour_end_markup_parameters and %{$self->hour_end_markup_parameters}) {
-            my $hour_end_markup =
-                Pricing::Engine::Markup::HourEndMarkup->new(hour_end_markup_parameters => $self->hour_end_markup_parameters)->markup->amount;
+            my $min          = $self->hour_end_markup_parameters->{high_low}->{low};
+            my $max          = $self->hour_end_markup_parameters->{high_low}->{high};
+            my $current_spot = $self->hour_end_markup_parameters->{current_spot};
+            # Because the high low is getting from data decimate hence the last spot might not be included in the data decimate, hence we include the spot in the min max
+            $min = min($current_spot, $min);
+            $max = max($current_spot, $max);
+
+            my $hour_end_markup = Pricing::Engine::Markup::HourEndMarkup->new(
+                hour_end_markup_parameters => $self->hour_end_markup_parameters,
+                spot_min                   => $min,
+                spot_max                   => $max
+            )->markup->amount;
             $risk_markup += $hour_end_markup;
             $self->debug_info->{risk_markup}{parameters}{hour_end_markup} = $hour_end_markup;
         }
