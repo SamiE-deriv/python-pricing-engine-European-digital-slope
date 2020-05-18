@@ -119,6 +119,7 @@ sub _get_params {
         volsurface_creation_date => $now,
         chronicle_reader         => undef,
         is_atm_contract          => $is_atm_contract,
+        pricing_new              => 1,
     };
 }
 
