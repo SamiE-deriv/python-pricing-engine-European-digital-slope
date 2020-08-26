@@ -121,7 +121,7 @@ The expiration time of the contract. Is a Date::Utility object.
 
 Is this At The Money contract?
 
-=head2 pricing_new
+=head2 for_sale
 
 Is this a new contract?
 
@@ -161,14 +161,14 @@ sub required_args {
     return [
         qw(for_date volsurface volsurface_creation_date contract_type spot strikes vol date_start date_pricing
             date_expiry discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
-            chronicle_reader is_atm_contract pricing_new)
+            chronicle_reader is_atm_contract for_sale)
     ];
 }
 
 has [
     qw(volsurface volsurface_creation_date contract_type spot strikes vol
         discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
-        chronicle_reader is_atm_contract pricing_new)
+        chronicle_reader is_atm_contract for_sale)
     ] => (
     is       => 'ro',
     required => 1,
@@ -385,7 +385,7 @@ sub _risk_markup {
 
         my $contract_duration = $self->date_expiry->epoch - $self->date_start->epoch;
 
-        if ($self->pricing_new and $contract_duration <= POTENTIAL_ARBITRAGE_DURATION) {
+        if (not $self->for_sale and $contract_duration <= POTENTIAL_ARBITRAGE_DURATION) {
             my $model_arb = Pricing::Engine::Markup::ModelArbitrage->new->markup;
             $risk_markup += $model_arb->amount;
             $self->debug_info->{risk_markup}{parameters}{model_arbitrage_markup} = $model_arb->amount;

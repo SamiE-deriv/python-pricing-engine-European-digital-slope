@@ -49,5 +49,5 @@ params:
                     50: 0.02
         'holidays::holidays':
     is_atm_contract: 0
-    pricing_new: 1
-result: 0.4567
+    for_sale: 1
+result: 0.4713
