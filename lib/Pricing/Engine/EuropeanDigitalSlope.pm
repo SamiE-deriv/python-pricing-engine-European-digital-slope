@@ -8,7 +8,7 @@ use File::ShareDir ();
 use Storable qw(dclone);
 use List::Util qw(min max sum);
 use YAML::XS qw(LoadFile);
-use Finance::Asset;
+use Finance::Underlying;
 use Math::Business::BlackScholesMerton::Binaries;
 use Math::Business::BlackScholesMerton::NonBinaries;
 use Math::Business::BlackScholes::Binaries::Greeks::Vega;
@@ -306,7 +306,7 @@ sub _risk_markup {
     return 0 if $self->error;
 
     my $underlying_config    = $self->_underlying_config;
-    my $market               = $underlying_config->{market};
+    my $market               = $underlying_config->market;
     my $market_markup_config = $markup_config->{$market};
     my $is_intraday          = $self->_is_intraday;
 
@@ -354,8 +354,8 @@ sub _risk_markup {
         # spot_spread_markup
         if (not $is_intraday) {
             my $underlying_config  = $self->_underlying_config;
-            my $spot_spread_size   = $underlying_config->{spot_spread_size} // 50;
-            my $spot_spread_base   = $spot_spread_size * $underlying_config->{pip_size};
+            my $spot_spread_size   = $underlying_config->spot_spread_size // 50;
+            my $spot_spread_base   = $spot_spread_size * $underlying_config->pip_size;
             my $bs_delta_formula   = _greek_formula_for('delta', $self->contract_type);
             my $bs_delta           = abs($bs_delta_formula->(_to_array(\%greek_params)));
             my $spot_spread_markup = max(0, min($spot_spread_base * $bs_delta, 0.01));
@@ -402,7 +402,7 @@ sub _risk_markup {
 
 sub _underlying_config {
     my $self = shift;
-    return Finance::Asset->instance->get_parameters_for($self->underlying_symbol);
+    return Finance::Underlying->by_symbol($self->underlying_symbol);
 }
 
 sub _timeindays {
@@ -588,7 +588,7 @@ sub _calculate {
             q_rate => $self->q_rate,
             r_rate => $self->r_rate,
             %{$self->_get_vol_expiry}};
-        my $pip_size = $self->_underlying_config->{pip_size};
+        my $pip_size = $self->_underlying_config->pip_size;
         # Move by pip size either way.
         $vol_args->{strike} = $strike - $pip_size;
         my $down_vol = $self->_get_volatility($vol_args);
