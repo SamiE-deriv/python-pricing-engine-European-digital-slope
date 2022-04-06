@@ -1,6 +1,6 @@
 requires 'Quant::Framework', ">= 0.48";
 requires 'Date::Utility';
-requires 'Finance::Asset';
+requires 'Finance::Underlying';
 requires 'List::Util';
 requires 'Scalar::Util';
 requires 'Math::Business::BlackScholesMerton';

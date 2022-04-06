@@ -18,7 +18,7 @@ my %WriteMakefileArgs = (
   "NAME" => "Pricing::Engine::EuropeanDigitalSlope",
   "PREREQ_PM" => {
     "Date::Utility" => 0,
-    "Finance::Asset" => 0,
+    "Finance::Underlying",
     "List::Util" => 0,
     "Math::Business::BlackScholesMerton" => 0,
     "Math::Business::BlackScholes::Binaries::Greeks::Delta" => 0,
@@ -52,7 +52,6 @@ my %FallbackPrereqs = (
   "Date::Utility" => 0,
   "ExtUtils::MakeMaker" => 0,
   "File::Spec" => 0,
-  "Finance::Asset" => 0,
   "IO::Handle" => 0,
   "IPC::Open3" => 0,
   "List::Util" => 0,
