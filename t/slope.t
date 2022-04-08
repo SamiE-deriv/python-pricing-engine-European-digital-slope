@@ -374,9 +374,10 @@ subtest 'expiry before start' => sub {
 };
 
 my %underlyings = (
-    forex       => 'frxEURUSD',
-    indices     => 'AEX',
-    commodities => 'frxXAUUSD',
+    forex        => 'frxEURUSD',
+    indices      => 'AEX',
+    commodities  => 'frxXAUUSD',
+    basket_index => 'WLDAUD'
 );
 
 subtest 'zero risk markup' => sub {
@@ -458,8 +459,8 @@ subtest 'smile uncertainty markup' => sub {
         'smile uncertainty markup will be applied to less than 7 days non-ATM contract';
     is $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 0.05, 'smile uncertainty markup is 0.05';
 
-    foreach my $market (qw(forex commodities)) {
-        note("market: $market, $underlyings{$market}");
+    foreach my $market (qw(forex basket_index commodities)) {
+        note("market: $market, $underlyings{$market}"); 
         $pp->{underlying_symbol} = $underlyings{$market};
         $pp->{strikes}           = [101];
         $pp->{is_atm_contract}   = ($pp->{strikes}->[0] == $pp->{spot}) ? 1 : 0;

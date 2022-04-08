@@ -149,6 +149,9 @@ state $markup_config = {
         smile_uncertainty_markup => 1,
     },
     synthetic_index => {},
+    basket_index => {
+        traded_market_markup => 1,
+    },
 };
 
 =head2 required_args
