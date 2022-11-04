@@ -69,11 +69,11 @@ sub _get_params {
     );
     my %strikes = (
         CALL        => [100],
-	CALL_NONATM => [101],
+        CALL_NONATM => [101],
         EXPIRYMISS  => [101, 99],
         EXPIRYRANGE => [101, 99],
     );
-    my $spot = 100;
+    my $spot           = 100;
     my $barrier_string = $ct;
     $barrier_string = $ct . '_NONATM' unless $atm;
     my $is_atm_contract = ($strikes{$barrier_string} and $strikes{$barrier_string}->[0] == $spot) ? 1 : 0;
@@ -100,18 +100,18 @@ sub _get_params {
                 }
             },
         },
-        priced_with   => $priced_with,
-        spot          => $spot,
-        strikes       => $strikes{$ct},
+        priced_with            => $priced_with,
+        spot                   => $spot,
+        strikes                => $strikes{$ct},
         apply_equal_tie_markup => 0,
-        date_start    => $now,
-        date_pricing  => $now,
-        date_expiry   => $now->plus_time_interval('10d'),
-        discount_rate => $discount_rate{$priced_with},
-        q_rate        => 0.002,
-        r_rate        => 0.025,
-        mu            => 0.023,
-        vol           => $ct eq (
+        date_start             => $now,
+        date_pricing           => $now,
+        date_expiry            => $now->plus_time_interval('10d'),
+        discount_rate          => $discount_rate{$priced_with},
+        q_rate                 => 0.002,
+        r_rate                 => 0.025,
+        mu                     => 0.023,
+        vol                    => $ct eq (
                    'CALL'
                 or 'PUT'
             )
@@ -153,8 +153,8 @@ subtest 'CALL probability' => sub {
     is $ref->{slope_adjustment}{parameters}{vanilla_vega}{parameters}{mu},            0.023, 'correct mu for vanilla_vega';
     is $ref->{slope_adjustment}{parameters}{vanilla_vega}{parameters}{discount_rate}, 0.01,  'correct discount_rate for vanilla_vega';
 
-    $pp     = _get_params('CALL', 'quanto');
-    $pe     = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+    $pp = _get_params('CALL', 'quanto');
+    $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     my $quanto = $pe->_base_probability;
     ok looks_like_number($quanto), 'probability looks like number';
     ok $quanto <= 1, 'probability <= 1';
@@ -177,13 +177,13 @@ subtest 'CALL probability' => sub {
     $pp    = _get_params('CALL', 'base');
     $pe    = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     $debug = $pe->debug_info;
-    my $base  = $pe->_base_probability;
+    my $base = $pe->_base_probability;
     ok looks_like_number($base), 'probability looks like number';
     ok $base <= 1, 'probability <= 1';
     ok $base >= 0, 'probability >= 0';
     is scalar keys %{$debug}, 1, 'only one set of debug information';
     ok exists $debug->{CALL}, 'parameters for CALL';
-    $p = $debug->{CALL};
+    $p   = $debug->{CALL};
     $ref = $p->{base_probability}{parameters};
     is $ref->{numeraire_probability}{parameters}{bs_probability}{amount}, 0.511533767442995, 'correct bs_probability';
     is $ref->{numeraire_probability}{parameters}{bs_probability}{parameters}{vol},           0.1,   'correct vol for bs';
@@ -200,7 +200,7 @@ subtest 'CALL probability' => sub {
 };
 
 subtest 'EXPIRYMISS probability' => sub {
-    my $pp = _get_params('EXPIRYMISS', 'numeraire');
+    my $pp    = _get_params('EXPIRYMISS', 'numeraire');
     my $debug = {};
     my $pe    = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     $debug = $pe->debug_info;
@@ -240,8 +240,8 @@ subtest 'EXPIRYMISS probability' => sub {
 };
 
 subtest 'EXPIRYRANGE probability' => sub {
-    my $pp = _get_params('EXPIRYRANGE', 'numeraire');
-    my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+    my $pp                = _get_params('EXPIRYRANGE', 'numeraire');
+    my $pe                = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     my $debug_information = $pe->debug_info;
     my $numeraire         = $pe->_base_probability;
     ok looks_like_number($numeraire), 'probability looks like number';
@@ -284,7 +284,7 @@ subtest 'unsupported contract_type' => sub {
     lives_ok {
         my $pp = _get_params('unsupported', 'numeraire');
         $pp->{strikes} = [100];
-        my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        my $pe       = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         my $debug    = $pe->debug_info;
         my $slope_bs = $pe->_base_probability;
         is $slope_bs, 1, 'probabilility is 1';
@@ -304,7 +304,7 @@ subtest 'unsupported contract_type' => sub {
 subtest 'unregconized priced_with' => sub {
     lives_ok {
         my $debug = {};
-        my $pp = _get_params('CALL', 'unregconized');
+        my $pp    = _get_params('CALL', 'unregconized');
         $pp->{discount_rate} = 0.01;
         my $pe         = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         my $slope_theo = $pe->_base_probability;
@@ -363,7 +363,7 @@ subtest 'barrier error' => sub {
 subtest 'expiry before start' => sub {
     lives_ok {
         my $debug = {};
-        my $pp = _get_params('CALL', 'numeraire');
+        my $pp    = _get_params('CALL', 'numeraire');
         $pp->{date_expiry} = Date::Utility->new('1999-01-02');
         my $pe    = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         my $slope = $pe->theo_probability;
@@ -373,12 +373,7 @@ subtest 'expiry before start' => sub {
     };
 };
 
-my %underlyings = (
-    forex        => 'frxEURUSD',
-    indices      => 'AEX',
-    commodities  => 'frxXAUUSD',
-    basket_index => 'WLDAUD'
-);
+my @underlyings = ('frxEURUSD', 'AEX', 'frxXAUUSD', 'WLDAUD');
 
 subtest 'zero risk markup' => sub {
     my $pp = _get_params('CALL', 'numeraire');
@@ -388,9 +383,9 @@ subtest 'zero risk markup' => sub {
     ok !$pe->_is_forward_starting, 'non forward starting contract';
     is $pe->_risk_markup, 0, 'risk markup is zero for random market';
 
-    $pp = _get_params('CALL', 'numeraire');
+    $pp               = _get_params('CALL', 'numeraire');
     $pp->{date_start} = $now->plus_time_interval('6s');
-    $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+    $pe               = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     ok !$pe->error, 'no error';
     ok $pe->_is_forward_starting, 'forward starting contract';
     is $pe->_risk_markup, 0, 'risk markup is zero for forward starting contract';
@@ -401,11 +396,10 @@ subtest 'zero risk markup' => sub {
 
 subtest 'spot spread markup' => sub {
     my $pp = _get_params('CALL', 'numeraire', 0);
-    foreach my $market (keys %underlyings) {
-        note("market: $market, $underlyings{$market}");
-        $pp->{underlying_symbol} = $underlyings{$market};
+    foreach my $symbol (@underlyings) {
+        $pp->{underlying_symbol} = $symbol;
         $pp->{date_expiry}       = $now->plus_time_interval('24h');
-        my $pe                = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         ok $pe->_is_intraday, 'is intraday';
         $pe->_risk_markup;
         my $debug_information = $pe->debug_info;
@@ -414,7 +408,7 @@ subtest 'spot spread markup' => sub {
         # By right we should we testing for 1day 1 seconds here.
         # But due to FX convention of integer number of days, 2 days work for every market.
         $pp->{date_expiry} = $now->plus_time_interval('2d');
-        $pe                = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         ok !$pe->_is_intraday, 'is intraday';
         $pe->_risk_markup;
         $debug_information = $pe->debug_info;
@@ -425,9 +419,7 @@ subtest 'spot spread markup' => sub {
 };
 subtest 'smile uncertainty markup' => sub {
     my $pp = _get_params('CALL', 'numeraire');
-    my $market = 'indices';
-    note("market: $market, $underlyings{$market}");
-    $pp->{underlying_symbol} = $underlyings{$market};
+    $pp->{underlying_symbol} = 'AEX';
     $pp->{date_expiry}       = $now->plus_time_interval('6d');
     $pp->{strikes}           = [100];
     $pp->{is_atm_contract}   = ($pp->{strikes}->[0] == $pp->{spot}) ? 1 : 0;
@@ -450,7 +442,7 @@ subtest 'smile uncertainty markup' => sub {
     ok !exists $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup},
         'smile uncertainty markup will not be applied to 7 days non-ATM contract';
     $pp->{date_expiry} = $now->plus_time_interval('6d');
-    $pe                = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+    $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
     ok !$pe->is_atm_contract, 'non ATM contract';
     is $pe->_timeindays, 6, 'timeindays < 7';
     $pe->_risk_markup;
@@ -459,9 +451,9 @@ subtest 'smile uncertainty markup' => sub {
         'smile uncertainty markup will be applied to less than 7 days non-ATM contract';
     is $debug_information->{risk_markup}{parameters}{smile_uncertainty_markup}, 0.05, 'smile uncertainty markup is 0.05';
 
-    foreach my $market (qw(forex basket_index commodities)) {
-        note("market: $market, $underlyings{$market}"); 
-        $pp->{underlying_symbol} = $underlyings{$market};
+    # AEX is indices
+    foreach my $symbol (grep { $_ ne 'AEX' } @underlyings) {
+        $pp->{underlying_symbol} = $symbol;
         $pp->{strikes}           = [101];
         $pp->{is_atm_contract}   = ($pp->{strikes}->[0] == $pp->{spot}) ? 1 : 0;
         $pp->{date_expiry}       = $now->plus_time_interval('6d');
@@ -479,7 +471,7 @@ subtest 'zero duration' => sub {
     my $pp = _get_params('CALL', 'numeraire');
     $pp->{date_pricing} = $pp->{date_expiry};
     lives_ok {
-        my $pe = Pricing::Engine::EuropeanDigitalSlope->new($pp);
+        my $pe    = Pricing::Engine::EuropeanDigitalSlope->new($pp);
         my $slope = $pe->theo_probability;
         isnt $pe->_timeinyears, 0, 'timeinyears isnt zero';
     }

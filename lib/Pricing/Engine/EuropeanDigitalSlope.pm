@@ -137,23 +137,6 @@ state $supported_types = {
 
 state $formula_args = [qw(spot strikes _timeinyears discount_rate mu vol payouttime_code)];
 
-state $markup_config = {
-    forex => {
-        traded_market_markup => 1,
-    },
-    commodities => {
-        traded_market_markup => 1,
-    },
-    indices => {
-        traded_market_markup     => 1,
-        smile_uncertainty_markup => 1,
-    },
-    synthetic_index => {},
-    basket_index => {
-        traded_market_markup => 1,
-    },
-};
-
 =head2 required_args
 
 Required arguments for this engine to work.
@@ -172,10 +155,10 @@ has [
     qw(volsurface volsurface_creation_date contract_type spot strikes vol
         discount_rate mu payouttime_code q_rate r_rate priced_with underlying_symbol
         chronicle_reader is_atm_contract for_sale)
-    ] => (
+] => (
     is       => 'ro',
     required => 1,
-    );
+);
 
 has for_date => (
     is => 'ro',
@@ -308,13 +291,8 @@ sub _risk_markup {
 
     return 0 if $self->error;
 
-    my $underlying_config    = $self->_underlying_config;
-    my $market               = $underlying_config->market;
-    my $market_markup_config = $markup_config->{$market};
-    my $is_intraday          = $self->_is_intraday;
-
     my $risk_markup = 0;
-    if ($market_markup_config->{'traded_market_markup'}) {
+    if ($self->_apply_traded_market_markup) {
         if ($self->hour_end_markup_parameters and %{$self->hour_end_markup_parameters}) {
             my $min          = $self->hour_end_markup_parameters->{high_low}->{low};
             my $max          = $self->hour_end_markup_parameters->{high_low}->{high};
@@ -355,7 +333,7 @@ sub _risk_markup {
         }
 
         # spot_spread_markup
-        if (not $is_intraday) {
+        if (not $self->_is_intraday) {
             my $underlying_config  = $self->_underlying_config;
             my $spot_spread_size   = $underlying_config->spot_spread_size // 50;
             my $spot_spread_base   = $spot_spread_size * $underlying_config->pip_size;
@@ -368,7 +346,7 @@ sub _risk_markup {
 
         # Generally for indices, the minimum available tenor for smile is 30 days.
         # We use this to price short term contracts, so adding a 5% markup for the volatility uncertainty.
-        if ($market_markup_config->{smile_uncertainty_markup} and $self->_timeindays < 7 and not $self->is_atm_contract) {
+        if ($self->_apply_smile_uncertainty_markup) {
             my $smile_uncertainty_markup = 0.05;
             $risk_markup += $smile_uncertainty_markup;
             $self->debug_info->{risk_markup}{parameters}{smile_uncertainty_markup} = $smile_uncertainty_markup;
@@ -402,6 +380,38 @@ sub _risk_markup {
 }
 
 ## PRIVATE ##
+
+=head2 _apply_traded_market_markup
+
+Non synthetic indices markup
+
+=cut
+
+sub _apply_traded_market_markup {
+    my $self = shift;
+
+    my $u_config = $self->_underlying_config;
+
+    return 1 if $u_config->{market}    =~ /^(?:forex|commodities|indices)$/;
+    return 1 if $u_config->{submarket} =~ /^(?:forex_basket|commodity_basket)$/;
+    return 0;
+}
+
+=head2 _apply_smile_uncertainty_markup
+
+Fixed markup added to non ATM contract with duration less than 7 days on indices
+due to volatility data quality from provider
+
+=cut
+
+sub _apply_smile_uncertainty_markup {
+    my $self = shift;
+
+    my $u_config = $self->_underlying_config;
+
+    return 1 if $u_config->{market} eq 'indices' and $self->_timeindays < 7 and not $self->is_atm_contract;
+    return 0;
+}
 
 sub _underlying_config {
     my $self = shift;
@@ -485,7 +495,7 @@ sub _calculate_probability {
             $debug_info{base_probability}{parameters}{base_vanilla_probability}{amount}     = $base_vanilla_probability;
             $debug_info{base_probability}{parameters}{base_vanilla_probability}{parameters} = \%cloned_params;
             my $which_way = $contract_type eq 'CALL' ? 1 : -1;
-            my $strike = $params->{strikes}->[0];
+            my $strike    = $params->{strikes}->[0];
             $debug_info{base_probability}{parameters}{spot}{amount}   = $self->spot;
             $debug_info{base_probability}{parameters}{strike}{amount} = $strike;
             $probability = ($numeraire_prob * $strike + $base_vanilla_probability * $which_way) / $self->spot;
@@ -582,7 +592,7 @@ sub _calculate {
     my $slope_adjustment = 0;
     unless ($self->_is_forward_starting) {
         my $vanilla_vega_formula = _greek_formula_for('vega', 'vanilla_' . $contract_type);
-        my $vanilla_vega = $vanilla_vega_formula->(@pricing_args);
+        my $vanilla_vega         = $vanilla_vega_formula->(@pricing_args);
         $debug_info{slope_adjustment}{parameters}{vanilla_vega}{amount}     = $vanilla_vega;
         $debug_info{slope_adjustment}{parameters}{vanilla_vega}{parameters} = $params;
         my $strike   = $params->{strikes}->[0];
@@ -597,7 +607,7 @@ sub _calculate {
         my $down_vol = $self->_get_volatility($vol_args);
         $vol_args->{strike} = $strike + $pip_size;
         my $up_vol = $self->_get_volatility($vol_args);
-        my $slope = ($up_vol - $down_vol) / (2 * $pip_size);
+        my $slope  = ($up_vol - $down_vol) / (2 * $pip_size);
         $debug_info{slope_adjustment}{parameters}{slope} = $slope;
         my $base_amount = $contract_type eq 'CALL' ? -1 : 1;
         $slope_adjustment = $base_amount * $vanilla_vega * $slope;
@@ -627,7 +637,7 @@ sub _greek_formula_for {
 }
 
 sub _pricing_args {
-    my $self = shift;
+    my $self   = shift;
     my %result = map { $_ => $self->$_ } @{$formula_args};
 
     #timeinyears does not exist in input parameters, we have to calculate it
@@ -647,7 +657,7 @@ sub _get_first_tenor_on_surface {
     my $self = shift;
 
     my $original_surface = $self->volsurface;
-    my $first_term = (sort { $a <=> $b } keys %$original_surface)[0];
+    my $first_term       = (sort { $a <=> $b } keys %$original_surface)[0];
     return $first_term;
 }
 
