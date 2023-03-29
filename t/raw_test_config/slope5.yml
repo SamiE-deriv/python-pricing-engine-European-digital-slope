@@ -50,4 +50,4 @@ params:
         'holidays::holidays':
     is_atm_contract: 0
     for_sale: 1
-result: 0.4713
+result: 0.4712

@@ -37,7 +37,7 @@ Pricing::Engine::EuropeanDigitalSlope - A pricing model for european digital con
 
 =cut
 
-our $VERSION = '1.25';
+our $VERSION = '1.26';
 
 =head1 SYNOPSIS
 
@@ -558,7 +558,7 @@ sub _get_atm_volatility {
     my $self     = shift;
     my $vol_args = shift;
 
-    $vol_args->{delta} = 50;
+    $vol_args->{market} = 'ATM';
     return $self->_get_volatility($vol_args);
 }
 
