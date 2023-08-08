@@ -16,7 +16,7 @@ jobs:
     - run:
         command: |
           source /etc/profile.d/perl5.sh
-          dzil smoke --release --author && dzil cover -test
+          dzil smoke --release --author && dzil cover -test && dzil xtest
         name: Run test
     shell: /bin/bash -leo pipefail
     working_directory: /home/git/regentmarkets/perl-Pricing-Engine-European-Digital-Slope
