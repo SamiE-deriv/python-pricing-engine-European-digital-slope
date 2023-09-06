@@ -1,18 +1,35 @@
 name: Build workflow
 run-name: Build workflow
-on: [push]
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  Explore-GitHub-Actions:
+  build: 
     runs-on: ubuntu-latest
+    container:
+      image: regentmarkets/debian-ci:stable
+      credentials:
+        username: circle4regentmarkets
+        password: ${{ secrets.DOCKER_PASSWORD }}
+      options: --user nobody:nogroup
+    defaults:
+      run:
+        shell: bash -le {0}
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      - name: Check out repository code
-        uses: actions/checkout@v3
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      - name: List files in the repository
+      - name: setup CI step
+        uses: regentmarkets/github-actions/ci-setup@perl
+        with:
+          read_github_ssh_key: ${{ secrets.READ_GITHUB_SSH_KEY }}
+          need_service: false
+          repository: ${{ github.repository }}
+      - name : Run Tests 
         run: |
-          ls ${{ github.workspace }}
-      - run: echo "🍏 This job's status is ${{ job.status }}."
+          source /etc/profile.d/perl5.sh
+          dzil smoke --release --author && dzil cover -test && dzil xtest
+        working-directory: /home/git/${{ github.repository }}
