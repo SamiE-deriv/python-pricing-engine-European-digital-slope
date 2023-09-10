@@ -1,14 +1,8 @@
-name: Build workflow
-run-name: Build workflow
+name: Daily master test
+run-name: Daily test on master branch
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - master
-  pull_request:
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  schedule:
+    - cron: '2 20 * * *'
 jobs:
   build: 
     runs-on: ubuntu-latest
