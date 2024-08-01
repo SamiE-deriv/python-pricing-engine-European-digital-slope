@@ -22,4 +22,5 @@ on test => sub {
     requires 'Test::FailWarnings';
     requires 'Test::More';
     requires 'Test::Perl::Critic';
+    requires 'Postgres::FeedDB';
 };
