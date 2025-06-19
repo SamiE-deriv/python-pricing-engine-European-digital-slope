@@ -1,64 +1,167 @@
-[![Build Status](https://magnum.travis-ci.com/regentmarkets/perl-Pricing-Engine-European-Digital-Slope.svg?token=hW4diZKywb9ZykP5jBev&branch=master)](https://magnum.travis-ci.com/regentmarkets/perl-Pricing-Engine-European-Digital-Slope)
-[![codecov](https://codecov.io/gh/regentmarkets/perl-Pricing-Engine-European-Digital-Slope/branch/master/graph/badge.svg?token=YoegB0Xfha)](https://codecov.io/gh/regentmarkets/perl-Pricing-Engine-European-Digital-Slope)
+# Pricing Engine: European Digital Slope
 
-# perl-Pricing-Engine-European-Digital-Slope
-European Digital options Pricing Engine for Binary.com.
+## Overview
+A comprehensive pricing engine for European digital options with volatility skew and slope adjustments. This implementation includes:
+- First and second-order expansions
+- Volatility surface calibration
+- Market-specific adjustments for FX and commodities
+- Extensive validation tools
 
-This model is a pricing algorithm for European Digital Options. European digital options have a payout of 1 or 0 at expiry, depending on the expiring conditions.
+## Mathematical Framework
 
-The most common pricing method (not the one implemented by this library) for european digitals is using tight-call spread, wherein vanilla options are used to replicate the payoff of the required digital option.
+### Core Pricing Methods
 
-~~~~
+1. **Butterfly Spread Approximation**:
+$$
+\mathrm{Digital}(K) = \lim_{\Delta K \to 0} \frac{\text{Call}(K, \sigma(K)) - \text{Call}(K + \Delta K, \sigma(K + \Delta K))}{\Delta K}
+$$
 
-Tight Call spread (static replica approach)
+2. **First Derivative with Skew**:
+$$
+\mathrm{Digital}(K) = -\frac{\partial \text{Call}}{\partial K} - \mathrm{Vega} \cdot \text{skew}
+$$
 
-DC(K) = 1/(2*dK) [C(K-dK) - C(K+dK)]
+3. **Second Order Expansion**:
+$$
+\begin{aligned}
+\frac{d^2}{dK^2} \text{Call}(K, \sigma(K)) &= \frac{\partial^2 \text{Call}}{\partial K^2} + 2 \frac{\partial^2 \text{Call}}{\partial K \partial \sigma} \cdot \frac{\partial \sigma}{\partial K} \\
+&+ \frac{\partial^2 \text{Call}}{\partial \sigma^2} \left(\frac{\partial \sigma}{\partial K}\right)^2 + \frac{\partial \text{Call}}{\partial \sigma} \frac{\partial^2 \sigma}{\partial K^2}
+\end{aligned}
+$$
 
-Where, C(x) is price of vanilla call at strike 'x' and DC(x) is price of a digital call at strike 'K'. As dK->0, the value approaches the price of a digital call.
+## Project Structure
 
-The static replica method is a model independent approach and allows us to define a digital options price simply by retrieving plain vanilla prices available in the market.
+```
+.
+├── european_digital_slope/
+│   ├── __init__.py
+│   ├── black_scholes.py          # Core BS implementation
+│   ├── butterfly_finite_diff.py   # Butterfly method
+│   ├── pricing_engine.py         # Main pricing engine
+│   ├── higher_order_smile.py     # Smile adjustments
+│   ├── monte_carlo_validation.py # Validation tools
+│   └── data/                     # Market data
+│       ├── commodities/
+│       │   ├── gold/
+│       │   └── silver/
+│       └── forex/
+│           ├── frJPYUSD/
+│           ├── frxEURUSD/
+│           └── frxGBPUSD/
+├── lib/
+│   └── Pricing/
+│       └── Engine/
+│           └── EuropeanDigitalSlope.pm
+├── t/                           # Test suite
+│   ├── price_check.t
+│   ├── pricing.t
+│   └── slope.t
+└── docs/                        # Documentation
+    ├── results.md               # Analysis results
+    └── pricing_formula_analysis.md
+```
 
-~~~~
+## Key Features
 
-To price digital call options, we use a model where the Black Scholes price (assuming a flat smile) is adjusted with the volatility skew observed in the market.
+1. **Multiple Pricing Methods**
+   - Butterfly spread approximation
+   - First derivative with skew adjustment
+   - Higher-order expansions
 
-~~~~
+2. **Market Coverage**
+   - FX Majors (EUR, GBP)
+   - JPY Crosses
+   - Commodities (Gold, Silver)
 
-In this model, the value of the digital call is equal to the value of a digital call in a flat volatility environment (with vol at strike K) plus Vega of a call option at strike K, times a factor which is the slope of the volatility smile at strike level
-(dvol(K)/dK).
+3. **Volatility Surface Handling**
+   - Skew calibration
+   - Smile adjustments
+   - Term structure
 
-DC(S,K) = DC_flat_vol - Vega(S,K) * dvol(K)/dK
+4. **Validation Tools**
+   - Monte Carlo simulations
+   - Market price comparisons
+   - Error analysis
 
-Where, DC_flat_vol is the BlackScholes price of a Digital Call (N(d2), where N(.) is the CDF and d2 is the standard expression for (ln(S/K)-(mu-vol^2)*t)/(vol*sqrt(t))) in a flat smile world.
-Vega(S,K) is the vega of a vanilla call option struck at strike K.
-~~~~
+## Implementation Details
 
-Since Vega of a European plain vanilla option is always positive, the digital call's value is abated in the presence of an upward-sloping volatility smile, whereas the reverse occurs when the volatility smile is downward sloping.
+### Core Components
 
-Usage:
+1. **Black-Scholes Engine**
+   - Standard option pricing
+   - Greeks calculation
+   - Volatility adjustments
 
-~~~~
-  use Pricing::Engine::EuropeanDigitalSlope;
+2. **Slope Engine**
+   - First derivative implementation
+   - Skew adjustments
+   - Higher-order corrections
 
-  my $now = time;
-  my $pe = Pricing::Engine::EuropeanDigitalSlope->new(
-      contract_type => 'CALL' # supports CALL, PUT, EXPIRYMISS and EXPIRYRANGE
-      underlying_symbol => 'frxUSDJPY',
-      spot => 120,
-      strikes => [121], # an array reference of strikes. [$strike1, $strike2] for multiple strikes contracts
-      date_start => $now, # epoch or Date::Utility object
-      date_pricing => $now, # epoch or Date::Utility object
-      date_expiry => $now + 86400, # epoch or Date::Utility object
-      mu => 0.001,
-      vol => 0.1, 10% volatility
-      discount_rate => 0.001, # payout currency rate
-      r_rate => 0.0023,
-      q_rate => 0.0021,
-      payouttime_code => 0, # boolean. True if the contract payouts at hit, false otherwise
-      priced_with => 'numeraire', # numeraire, base or quanto?
-  );
+3. **Market Data**
+   - Historical volatility surfaces
+   - Real-time data integration
+   - Calibration tools
 
-  To get the theoretical probability for the contract:
-  my $theo_probability = $pe->theo_probability;
+## Validation Results
 
-~~~~
+Our analysis shows:
+1. Strong agreement between butterfly and first derivative methods (diff < 0.1%)
+2. Vanna*skew term dominates higher-order corrections
+3. Market-specific patterns in convergence and accuracy
+
+## Usage
+
+```perl
+use Pricing::Engine::EuropeanDigitalSlope;
+
+my $engine = Pricing::Engine::EuropeanDigitalSlope->new(
+    spot => 100,
+    strike => 102,
+    maturity => 0.25,  # in years
+    rate => 0.05,
+    volatility => 0.2,
+    skew => -0.002     # dσ/dK
+);
+
+my $price = $engine->price();
+my $delta = $engine->delta();
+```
+
+## Dependencies
+- Perl 5.10 or higher
+- Math::CDF
+- Statistics::Descriptive
+- Date::Calc
+
+## Installation
+
+```bash
+perl Makefile.PL
+make
+make test
+make install
+```
+
+## Testing
+Run the test suite:
+```bash
+prove -l t/
+```
+
+## Contributing
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+MIT License
+
+## Authors
+Sami El Mokh
+
+## References
+- Results and analysis documentation
+- Market data sources
+- Validation methodology
